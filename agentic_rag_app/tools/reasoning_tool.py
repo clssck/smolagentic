@@ -1,19 +1,31 @@
-from typing import Dict, Any
-from llama_index.core.tools import BaseTool, ToolMetadata, ToolOutput
+"""Reasoning tools for advanced analytical and comparative tasks.
+
+This module provides tools that leverage reasoning capabilities for
+complex problem-solving and comparison analysis within the RAG system.
+"""
+
+from typing import Any
+
 from agents.reasoning_agent import get_reasoning_agent
+from llama_index.core.tools import BaseTool, ToolMetadata, ToolOutput
+
 
 class ReasoningTool(BaseTool):
-    """
-    Tool that provides access to Qwen 3's thinking mode for complex reasoning tasks.
+    """Tool that provides access to Qwen 3's thinking mode for complex reasoning tasks.
     Can be integrated into the main RAG agent for advanced problem solving.
     """
-    
+
     def __init__(self, model_name: str = "qwen3-32b-reasoning"):
+        """Initialize the reasoning tool with specified model.
+        
+        Args:
+            model_name: Name of the language model to use for reasoning.
+        """
         self.reasoning_agent = get_reasoning_agent(model_name)
         self._metadata = ToolMetadata(
             name="deep_reasoning",
             description="""Use this tool for complex reasoning tasks that require step-by-step thinking.
-            
+
 Perfect for:
 - Mathematical problems and calculations
 - Logical puzzles and reasoning
@@ -21,24 +33,28 @@ Perfect for:
 - Comparing different approaches or solutions
 - Problems that benefit from showing work/thinking process
 
-Input should be a clear problem statement or question that needs deep analysis."""
+Input should be a clear problem statement or question that needs deep analysis.""",
         )
-    
+
     @property
     def metadata(self) -> ToolMetadata:
-        return self._metadata
-    
-    def call(self, query: str, domain: str = "general") -> str:
-        """
-        Execute reasoning on the given query.
+        """Get the tool metadata.
         
+        Returns:
+            ToolMetadata object containing tool information.
+        """
+        return self._metadata
+
+    def call(self, query: str, domain: str = "general") -> str:
+        """Execute reasoning on the given query.
+
         Args:
             query: The problem or question to reason through
             domain: Optional domain hint (math, coding, logic, analysis, general)
         """
         try:
             result = self.reasoning_agent.solve_problem(query, domain)
-            
+
             # Format response for the agent
             if result["thinking_steps"]:
                 response = f"""**Reasoning Process:**
@@ -47,13 +63,13 @@ Input should be a clear problem statement or question that needs deep analysis."
 **Final Answer:**
 {result['final_answer']}"""
             else:
-                response = result['final_answer']
-            
+                response = result["final_answer"]
+
             return response
-            
+
         except Exception as e:
-            return f"Error in reasoning: {str(e)}"
-    
+            return f"Error in reasoning: {e!s}"
+
     def __call__(self, input: Any) -> ToolOutput:
         """Required by BaseTool interface"""
         if isinstance(input, str):
@@ -64,63 +80,71 @@ Input should be a clear problem statement or question that needs deep analysis."
             result = self.call(query, domain)
         else:
             result = self.call(str(input))
-        
+
         return ToolOutput(
             content=result,
             tool_name=self.metadata.name,
             raw_input=input,
-            raw_output=result
+            raw_output=result,
         )
 
 class ComparisonTool(BaseTool):
+    """Tool for comparing different approaches or solutions to a problem.
     """
-    Tool for comparing different approaches or solutions to a problem.
-    """
-    
+
     def __init__(self, model_name: str = "qwen3-32b-reasoning"):
+        """Initialize the comparison tool with specified model.
+        
+        Args:
+            model_name: Name of the language model to use for comparisons.
+        """
         self.reasoning_agent = get_reasoning_agent(model_name)
         self._metadata = ToolMetadata(
             name="compare_approaches",
             description="""Compare different approaches, methods, or solutions to a problem.
-            
+
 Use when you need to:
 - Evaluate multiple solution strategies
 - Compare pros and cons of different approaches
 - Analyze trade-offs between options
 - Make recommendations based on analysis
 
-Provide the problem and a list of approaches to compare."""
+Provide the problem and a list of approaches to compare.""",
         )
-    
+
     @property
     def metadata(self) -> ToolMetadata:
-        return self._metadata
-    
-    def call(self, problem: str, approaches: str) -> str:
-        """
-        Compare different approaches to solving a problem.
+        """Get the tool metadata.
         
+        Returns:
+            ToolMetadata object containing tool information.
+        """
+        return self._metadata
+
+    def call(self, problem: str, approaches: str) -> str:
+        """Compare different approaches to solving a problem.
+
         Args:
             problem: The problem statement
             approaches: Comma-separated list of approaches to compare
         """
         try:
             # Parse approaches
-            approach_list = [approach.strip() for approach in approaches.split(',')]
-            
+            approach_list = [approach.strip() for approach in approaches.split(",")]
+
             result = self.reasoning_agent.compare_approaches(problem, approach_list)
-            
+
             response = f"""**Problem Analysis:**
 {result['thinking_steps'] if result['thinking_steps'] else 'Direct comparison performed'}
 
 **Comparison Result:**
 {result['final_answer']}"""
-            
+
             return response
-            
+
         except Exception as e:
-            return f"Error in comparison: {str(e)}"
-    
+            return f"Error in comparison: {e!s}"
+
     def __call__(self, input: Any) -> ToolOutput:
         """Required by BaseTool interface"""
         if isinstance(input, str):
@@ -135,17 +159,17 @@ Provide the problem and a list of approaches to compare."""
                 result = f"Error: Missing problem or approaches in input: {input}"
         else:
             result = f"Error: Invalid input format: {input}"
-        
+
         return ToolOutput(
             content=result,
             tool_name=self.metadata.name,
             raw_input=input,
-            raw_output=result
+            raw_output=result,
         )
 
 def get_reasoning_tools(model_name: str = "qwen3-32b-reasoning") -> list:
     """Get list of reasoning tools for integration into agents"""
     return [
         ReasoningTool(model_name),
-        ComparisonTool(model_name)
+        ComparisonTool(model_name),
     ]
