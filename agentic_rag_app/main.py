@@ -93,11 +93,17 @@ The modular system features:
         print("=" * 60)
 
         try:
-            from src.core.manager_agent_system import ManagerAgentSystem
-
-            # Initialize manager agent system with custom config if provided
-            config_path = args.config if args.config else None
-            system = ManagerAgentSystem(config_path)
+            # Try new refactored system first, fallback to old system
+            try:
+                from src.core.refactored_manager_system import RefactoredManagerSystem
+                config_path = args.config if args.config else None
+                system = RefactoredManagerSystem(config_path)
+                print("✅ Using refactored modular agent system")
+            except ImportError:
+                from src.core.manager_agent_system import ManagerAgentSystem
+                config_path = args.config if args.config else None
+                system = ManagerAgentSystem(config_path)
+                print("⚠️  Using legacy manager system")
 
             # Use specific agent if requested, otherwise use default
             agent_name = args.agent if args.agent else None
@@ -115,11 +121,17 @@ The modular system features:
         print("🚀 Starting Modular RAG CLI...")
 
         try:
-            from src.core.manager_agent_system import ManagerAgentSystem
-
-            # Initialize manager agent system with custom config if provided
-            config_path = args.config if args.config else None
-            system = ManagerAgentSystem(config_path)
+            # Try new refactored system first, fallback to old system
+            try:
+                from src.core.refactored_manager_system import RefactoredManagerSystem
+                config_path = args.config if args.config else None
+                system = RefactoredManagerSystem(config_path)
+                print("✅ Using refactored modular agent system")
+            except ImportError:
+                from src.core.manager_agent_system import ManagerAgentSystem
+                config_path = args.config if args.config else None
+                system = ManagerAgentSystem(config_path)
+                print("⚠️  Using legacy manager system")
 
             # Show available components
             components = system.list_available_components()

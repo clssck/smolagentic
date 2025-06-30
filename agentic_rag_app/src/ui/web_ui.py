@@ -9,7 +9,13 @@ try:
 except ImportError:
     GRADIO_UI_AVAILABLE = False
 
-from src.core.manager_agent_system import ManagerAgentSystem
+# Try new refactored system first, fallback to old system
+try:
+    from src.core.refactored_manager_system import RefactoredManagerSystem as ManagerSystem
+    REFACTORED_SYSTEM = True
+except ImportError:
+    from src.core.manager_agent_system import ManagerAgentSystem as ManagerSystem
+    REFACTORED_SYSTEM = False
 from src.utils.config import Config
 
 
@@ -18,12 +24,18 @@ def create_manager_agent():
     Config.validate()
 
     # Create manager agent system
-    system = ManagerAgentSystem()
-
-    if not system.manager_agent:
-        raise RuntimeError("Failed to initialize manager agent system")
-
-    return system.manager_agent
+    system = ManagerSystem()
+    
+    if REFACTORED_SYSTEM:
+        print("✅ Using refactored modular agent system for web UI")
+        if not system.manager_agent:
+            raise RuntimeError("Failed to initialize refactored manager agent system")
+        return system.manager_agent
+    else:
+        print("⚠️  Using legacy manager system for web UI")
+        if not system.manager_agent:
+            raise RuntimeError("Failed to initialize legacy manager agent system")
+        return system.manager_agent
 
 
 def find_available_port(start_port: int, end_port: int = None) -> int:
