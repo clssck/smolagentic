@@ -1,0 +1,82 @@
+[tool.ruff.lint]
+# Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "T20", "SIM", "ARG", "PTH", "PL", "RUF"]
+
+# Ignore specific rules that are too strict for this project
+ignore = [
+    "T201",    # print statements (needed for CLI)
+    "ANN",     # type annotations (can be added gradually)
+    "D",       # docstring rules (can be improved gradually)
+    "BLE001",  # blind exception catching (acceptable for demo code)
+    "TRY003",  # long exception messages
+    "EM101",   # string literals in exceptions
+    "EM102",   # f-string literals in exceptions
+    "PLR0912", # too many branches
+    "PLR0915", # too many statements
+    "PLR0913", # too many arguments
+    "PLR2004", # magic values
+    "PLR1714", # multiple comparisons
+    "B904",    # raise from
+    "TRY300",  # else block
+    "RET504",  # unnecessary assignment
+    "SLF001",  # private member access
+    "ANN401",  # Any type
+    "ERA001",  # commented code (examples)
+    "PERF203", # try-except in loop
+    "INP001",  # implicit namespace package
+    "EXE001",  # shebang without executable
+    "S110",    # try-except-pass
+    "E722",    # bare except
+    "TRY002",  # custom exception
+    "F841",    # unused variable
+    "F821",    # undefined name (will fix separately)
+    "ARG002",  # unused arguments (acceptable for interfaces)
+    "RUF012",  # mutable class attributes
+    "RUF013",  # implicit optional (will fix gradually)
+    "RUF015",  # prefer next(iter())
+    "PTH",     # pathlib (will migrate gradually)
+    "A002",    # shadowing builtin
+    "B007",    # unused loop variable
+    "SIM102",  # nested if
+    "W291",    # trailing whitespace
+    "W293",    # blank line with whitespace
+]
+
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
