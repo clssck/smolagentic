@@ -4,8 +4,10 @@ Manager Agent System
 
 import json
 import sys
+import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List
+from dataclasses import dataclass, field
 
 from smolagents import (
     CodeAgent,
@@ -19,7 +21,20 @@ from smolagents import (
 )
 
 try:
+    from smolagents import LiteLLMRouterModel
+    ROUTER_MODEL_AVAILABLE = True
+except ImportError:
+    ROUTER_MODEL_AVAILABLE = False
+
+try:
+    from smolagents.monitoring import TreeFileLogger, JsonFileLogger
+    ADVANCED_LOGGING_AVAILABLE = True
+except ImportError:
+    ADVANCED_LOGGING_AVAILABLE = False
+
+try:
     from src.agents.database_agent import DatabaseAgent
+
     DATABASE_AVAILABLE = True
 except ImportError:
     DATABASE_AVAILABLE = False
@@ -27,23 +42,65 @@ except ImportError:
 try:
     from src.core.model_pool import get_model_by_config, shared_models
     from src.core.shared_browser import (
-        SharedBrowserSession, StatefulWebSearchTool, 
-        StatefulWebVisitTool, BrowserNavigationTool
+        SharedBrowserSession,
+        StatefulWebSearchTool,
+        StatefulWebVisitTool,
+        BrowserNavigationTool,
     )
+
     SHARED_TOOLS_AVAILABLE = True
 except ImportError:
     SHARED_TOOLS_AVAILABLE = False
 
 sys.path.append(str(Path(__file__).parent.parent))
 
+
+@dataclass
+class PerformanceMetrics:
+    """Performance monitoring for the manager agent system"""
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    total_requests: int = 0
+    total_time: float = 0.0
+    agent_call_counts: Dict[str, int] = field(default_factory=dict)
+    tool_call_counts: Dict[str, int] = field(default_factory=dict)
+    
+    def update_tokens(self, input_tokens: int, output_tokens: int):
+        self.total_input_tokens += input_tokens
+        self.total_output_tokens += output_tokens
+        self.total_requests += 1
+    
+    def update_agent_call(self, agent_name: str):
+        self.agent_call_counts[agent_name] = self.agent_call_counts.get(agent_name, 0) + 1
+    
+    def update_tool_call(self, tool_name: str):
+        self.tool_call_counts[tool_name] = self.tool_call_counts.get(tool_name, 0) + 1
+    
+    def get_stats(self) -> Dict[str, Any]:
+        avg_time = self.total_time / self.total_requests if self.total_requests > 0 else 0
+        total_tokens = self.total_input_tokens + self.total_output_tokens
+        
+        return {
+            "total_tokens": total_tokens,
+            "input_tokens": self.total_input_tokens, 
+            "output_tokens": self.total_output_tokens,
+            "total_requests": self.total_requests,
+            "average_time_seconds": round(avg_time, 2),
+            "agent_calls": dict(self.agent_call_counts),
+            "tool_calls": dict(self.tool_call_counts),
+            "tokens_per_request": round(total_tokens / self.total_requests, 1) if self.total_requests > 0 else 0
+        }
+
 try:
     from src.utils.config import Config
+
     UTILS_AVAILABLE = True
 except ImportError:
     UTILS_AVAILABLE = False
 
 try:
     from vector_store.qdrant_client import QdrantVectorStore
+
     VECTOR_STORE_AVAILABLE = True
 except ImportError:
     VECTOR_STORE_AVAILABLE = False
@@ -68,104 +125,319 @@ class RAGTool(Tool):
         self.search_history = []  # Store search context
         self.query_context = {}  # Related queries and results
         self.session_id = str(int(time.time()))
+        
+        # Advanced tool result caching
+        self.tool_result_cache = {}  # Cache for expensive operations
+        self.cache_hits = 0
+        self.cache_misses = 0
+        
+        # Initialize logger
+        import logging
+        self.logger = logging.getLogger(__name__)
 
     def forward(self, query: str) -> str:
-        """Search the knowledge base with context awareness"""
+        """Search the knowledge base with context awareness and caching"""
         import time
-        
+        import hashlib
+
         try:
-            # Add query to history
-            self.search_history.append({
-                "query": query,
-                "timestamp": time.time(),
-                "results_found": 0
-            })
+            # Create cache key for the query
+            cache_key = hashlib.md5(query.lower().strip().encode()).hexdigest()
             
+            # Check cache first
+            if cache_key in self.tool_result_cache:
+                cached_result = self.tool_result_cache[cache_key]
+                # Check if cache is still fresh (within 1 hour)
+                if time.time() - cached_result['timestamp'] < 3600:
+                    self.cache_hits += 1
+                    self.logger.info(f"🎯 Cache hit for query: {query[:50]}...")
+                    return cached_result['result']
+                else:
+                    # Remove stale cache entry
+                    del self.tool_result_cache[cache_key]
+            
+            self.cache_misses += 1
+            
+            # Add query to history
+            self.search_history.append(
+                {"query": query, "timestamp": time.time(), "results_found": 0}
+            )
+
             # Get related context from previous searches
             related_context = self._get_related_context(query)
-            
+
             if self.vector_store:
-                # Use actual vector store
-                results = self.vector_store.search(query, top_k=5)
+                # Hybrid search approach
+                all_results = []
+                methods_used = []
+                
+                # Method 1: Semantic search
+                try:
+                    from src.utils.embedding_service import embed_query
+                    query_embedding = embed_query(query)
+                    semantic_results = self.vector_store.search(query_vector=query_embedding, top_k=3)
+                    if semantic_results:
+                        for result in semantic_results:
+                            result['search_method'] = 'semantic'
+                        all_results.extend(semantic_results)
+                        methods_used.append("semantic")
+                except Exception as e:
+                    self.logger.warning(f"Semantic search failed: {e}")
+                
+                # Method 2: Text-based search  
+                try:
+                    text_results = self.vector_store.search_by_text_filter(query, limit=3)
+                    if text_results:
+                        for result in text_results:
+                            result['search_method'] = 'text'
+                        all_results.extend(text_results)
+                        methods_used.append("text")
+                except Exception as e:
+                    self.logger.warning(f"Text search failed: {e}")
+                
+                # Method 3: Keyword fallback
+                if not all_results:
+                    try:
+                        keywords = query.lower().split()
+                        for keyword in keywords[:2]:  # Try top 2 keywords
+                            keyword_results = self.vector_store.search_by_text_filter(keyword, limit=2)
+                            if keyword_results:
+                                for result in keyword_results:
+                                    result['search_method'] = f'keyword-{keyword}'
+                                all_results.extend(keyword_results)
+                                methods_used.append(f"keyword")
+                                break
+                    except Exception as e:
+                        self.logger.warning(f"Keyword search failed: {e}")
+                
+                # Deduplicate and rank results
+                seen_ids = set()
+                unique_results = []
+                for result in all_results:
+                    result_id = result.get('id')
+                    if result_id not in seen_ids:
+                        unique_results.append(result)
+                        seen_ids.add(result_id)
+                
+                # Enhanced result ranking
+                if unique_results:
+                    ranked_results = self._rank_results(unique_results, query)
+                    results = ranked_results[:5]  # Limit to top 5
+                else:
+                    results = []
+                search_type = '+'.join(methods_used) if methods_used else 'none'
+
                 if results:
                     # Update search history with results count
                     self.search_history[-1]["results_found"] = len(results)
-                    
+
                     # Store query context for future searches
                     self.query_context[query] = {
                         "results": results,
                         "timestamp": time.time(),
-                        "summary": f"Found {len(results)} relevant documents"
+                        "summary": f"Found {len(results)} relevant documents using {search_type} search",
+                        "search_type": search_type
                     }
-                    
+
                     context = "\n\n".join(
                         [
-                            f"Document {i + 1}: {result.get('content', result.get('text', str(result)))}"
+                            f"Document {i + 1} ({result.get('search_method', 'unknown')}, relevance: {result.get('relevance_score', 0)}): {result.get('content', result.get('text', str(result)))}"
                             for i, result in enumerate(results)
                         ]
                     )
-                    
-                    response = f"Knowledge base search results for '{query}':\n\n{context}"
-                    
+
+                    response = (
+                        f"Knowledge base search results for '{query}' (using {search_type} search):\n\n{context}"
+                    )
+
                     # Add related context if available
                     if related_context:
                         response = f"{related_context}\n\n{response}"
+
+                    # Cache successful results
+                    self.tool_result_cache[cache_key] = {
+                        'result': response,
+                        'timestamp': time.time(),
+                        'query': query,
+                        'results_count': len(results)
+                    }
                     
+                    # Manage cache size (keep last 100 entries)
+                    if len(self.tool_result_cache) > 100:
+                        oldest_key = min(self.tool_result_cache.keys(), 
+                                       key=lambda k: self.tool_result_cache[k]['timestamp'])
+                        del self.tool_result_cache[oldest_key]
+
                     return response
                 else:
-                    return f"No relevant documents found in knowledge base for '{query}'"
+                    return (
+                        f"No relevant documents found in knowledge base for '{query}' (tried {search_type} search)"
+                    )
             else:
                 # Fallback mode with context
                 fallback_response = f"Knowledge base search for '{query}': [Vector store not available - using fallback]"
                 if related_context:
                     fallback_response = f"{related_context}\n\n{fallback_response}"
                 return fallback_response
-                
+
         except Exception as e:
             return f"Error searching knowledge base for '{query}': {e!s}"
     
+    def _rank_results(self, results: List[Dict[str, Any]], query: str) -> List[Dict[str, Any]]:
+        """
+        Rank results using multiple relevance signals.
+        
+        Args:
+            results: List of search results
+            query: Original search query
+            
+        Returns:
+            Ranked list of results
+        """
+        query_terms = set(query.lower().split())
+        
+        for result in results:
+            score = 0.0
+            
+            # Base score from search method and original score
+            search_method = result.get('search_method', 'unknown')
+            base_score = result.get('score', 0.5)  # Default score if not provided
+            
+            # Method-based scoring
+            if search_method == 'semantic':
+                score += base_score * 1.5  # Prefer semantic results
+            elif search_method == 'text':
+                score += base_score * 1.2  # Text search is good
+            elif 'keyword' in search_method:
+                score += base_score * 1.0  # Keyword is fallback
+            else:
+                score += base_score * 0.8
+            
+            # Content quality scoring
+            content = result.get('content', result.get('text', ''))
+            content_lower = content.lower()
+            
+            # Length bonus (prefer substantial content)
+            content_length = len(content)
+            if content_length > 1000:
+                score += 0.3
+            elif content_length > 500:
+                score += 0.2
+            elif content_length > 200:
+                score += 0.1
+            elif content_length < 50:
+                score -= 0.2  # Penalize very short content
+            
+            # Query term matching
+            content_terms = set(content_lower.split())
+            query_matches = len(query_terms.intersection(content_terms))
+            match_ratio = query_matches / len(query_terms) if query_terms else 0
+            score += match_ratio * 0.5
+            
+            # Exact phrase matching bonus
+            if query.lower() in content_lower:
+                score += 0.4
+            
+            # Technical content indicators (boost for code, technical terms)
+            technical_indicators = [
+                'def ', 'class ', 'import ', 'function', 'algorithm', 'method',
+                'python', 'javascript', 'html', 'css', 'sql', 'api', 'json',
+                'machine learning', 'neural network', 'data science'
+            ]
+            
+            tech_matches = sum(1 for indicator in technical_indicators 
+                             if indicator in content_lower)
+            if tech_matches > 0:
+                score += min(tech_matches * 0.1, 0.3)  # Cap at 0.3
+            
+            # Freshness bonus (if timestamp available)
+            if 'timestamp' in result:
+                try:
+                    import time
+                    age_days = (time.time() - result['timestamp']) / (24 * 3600)
+                    if age_days < 30:  # Content less than 30 days old
+                        score += 0.1
+                except:
+                    pass
+            
+            # Structure bonus (well-formatted content)
+            if any(marker in content for marker in ['##', '```', '1.', '- ']):
+                score += 0.1  # Structured content bonus
+            
+            result['relevance_score'] = round(score, 3)
+        
+        # Sort by relevance score (descending)
+        ranked_results = sorted(results, key=lambda x: x.get('relevance_score', 0), reverse=True)
+        
+        # Log ranking for debugging
+        self.logger.debug(f"Ranked {len(results)} results for query '{query}':")
+        for i, result in enumerate(ranked_results[:3]):  # Log top 3
+            method = result.get('search_method', 'unknown')
+            score = result.get('relevance_score', 0)
+            content_preview = result.get('content', '')[:50] + '...'
+            self.logger.debug(f"  {i+1}. {method} (score: {score}): {content_preview}")
+        
+        return ranked_results
+
     def _get_related_context(self, query: str) -> str:
         """Get context from related previous searches"""
         if len(self.search_history) < 2:
             return ""
-        
+
         # Find semantically related queries (simple keyword matching)
         query_words = set(query.lower().split())
         related_searches = []
-        
+
         for search in self.search_history[-5:]:  # Last 5 searches
             if search["query"] == query:
                 continue
-            
+
             search_words = set(search["query"].lower().split())
             # Simple similarity check
             common_words = query_words.intersection(search_words)
             if len(common_words) >= 1 and len(common_words) / len(query_words) > 0.3:
                 related_searches.append(search)
-        
+
         if not related_searches:
             return ""
-        
+
         context = "Related previous searches:\n"
         for search in related_searches:
-            context += f"- '{search['query']}' ({search['results_found']} results found)\n"
-        
+            context += (
+                f"- '{search['query']}' ({search['results_found']} results found)\n"
+            )
+
         return context
-    
+
     def get_search_stats(self) -> dict:
-        """Get search session statistics"""
+        """Get comprehensive search session statistics"""
+        total_cache_requests = self.cache_hits + self.cache_misses
+        cache_hit_rate = (self.cache_hits / total_cache_requests * 100) if total_cache_requests > 0 else 0
+        
         return {
             "session_id": self.session_id,
             "total_searches": len(self.search_history),
             "unique_queries": len(self.query_context),
             "recent_queries": [s["query"] for s in self.search_history[-3:]],
-            "average_results": sum(s["results_found"] for s in self.search_history) / len(self.search_history) if self.search_history else 0
+            "average_results": sum(s["results_found"] for s in self.search_history)
+            / len(self.search_history)
+            if self.search_history
+            else 0,
+            # Advanced caching statistics
+            "cache_hits": self.cache_hits,
+            "cache_misses": self.cache_misses,
+            "cache_hit_rate_percent": round(cache_hit_rate, 1),
+            "cache_size": len(self.tool_result_cache),
+            "cached_queries": list(self.tool_result_cache.keys())[-5:] if self.tool_result_cache else [],
         }
-    
+
     def clear_context(self):
-        """Clear search context and history"""
+        """Clear search context, history, and cache"""
         self.search_history = []
         self.query_context = {}
+        self.tool_result_cache = {}
+        self.cache_hits = 0
+        self.cache_misses = 0
         self.session_id = str(int(time.time()))
 
 
@@ -225,11 +497,18 @@ class ManagerAgentSystem:
         self.database_agent = None
         self.conversation_history = []  # Simple conversation memory
         self.debug_mode = False
-        
+
         # Shared context managers
         self.browser_session = None
         self.rag_tool_instance = None
         
+        # Performance monitoring
+        self.metrics = PerformanceMetrics()
+        
+        # Advanced logging setup
+        self.loggers = []
+        self._setup_advanced_logging()
+
         self._setup_vector_store()
         self._setup_database()
         self._setup_shared_context()
@@ -296,11 +575,15 @@ class ManagerAgentSystem:
     def _setup_vector_store(self):
         """Initialize vector store if available"""
         try:
-            if self.config["vector_store"]["enabled"] and VECTOR_STORE_AVAILABLE and UTILS_AVAILABLE:
+            if (
+                self.config["vector_store"]["enabled"]
+                and VECTOR_STORE_AVAILABLE
+                and UTILS_AVAILABLE
+            ):
                 # Try to use existing vector store
                 config = Config()
                 self.vector_store = QdrantVectorStore(
-                    collection_name="documents", config=config
+                    collection_name=config.QDRANT_COLLECTION_NAME, config=config
                 )
                 print("Vector store connected")
             else:
@@ -314,7 +597,7 @@ class ManagerAgentSystem:
         except Exception as e:
             print(f"Vector store setup failed: {e}")
             self.vector_store = None
-    
+
     def _setup_database(self):
         """Setup database agent if available"""
         try:
@@ -334,7 +617,7 @@ class ManagerAgentSystem:
                 # Create shared browser session
                 self.browser_session = SharedBrowserSession()
                 print("Shared browser session created")
-                
+
                 # Preload models for better performance
                 shared_models.preload_models(self.config["models"])
                 print("Models preloaded in shared pool")
@@ -342,14 +625,226 @@ class ManagerAgentSystem:
                 print("Shared tools not available")
         except Exception as e:
             print(f"Shared context setup failed: {e}")
+    
+    def _setup_advanced_logging(self):
+        """Setup advanced logging with Tree and JSON loggers"""
+        try:
+            if ADVANCED_LOGGING_AVAILABLE:
+                # Create logs directory if it doesn't exist
+                logs_dir = Path("logs")
+                logs_dir.mkdir(exist_ok=True)
+                
+                # Tree logger for beautiful console output
+                tree_logger = TreeFileLogger()
+                self.loggers.append(tree_logger)
+                
+                # JSON logger for machine-readable logs
+                json_logger = JsonFileLogger(str(logs_dir / "agent_performance.json"))
+                self.loggers.append(json_logger)
+                
+                print("✅ Advanced logging enabled (Tree + JSON)")
+            else:
+                print("⚠️ Advanced logging not available")
+        except Exception as e:
+            print(f"Advanced logging setup failed: {e}")
+    
+    def _create_router_model(self, model_config: dict, model_name: str):
+        """Create a router model with multiple providers for reliability"""
+        if not ROUTER_MODEL_AVAILABLE:
+            # Fallback to regular LiteLLM model
+            return LiteLLMModel(
+                model_id=model_config["name"],
+                temperature=model_config["temperature"],
+                max_tokens=model_config["max_tokens"],
+            )
+        
+        try:
+            # Create model list with multiple providers for same model group
+            primary_model = model_config["name"]
+            
+            # Define backup models based on primary
+            model_list = []
+            
+            if "groq" in primary_model:
+                # Groq with OpenRouter backup
+                model_list = [
+                    {
+                        "model_name": f"{model_name}-group",
+                        "litellm_params": {
+                            "model": primary_model,
+                            "temperature": model_config["temperature"],
+                            "max_tokens": model_config["max_tokens"],
+                        },
+                    },
+                    {
+                        "model_name": f"{model_name}-group", 
+                        "litellm_params": {
+                            "model": "openrouter/mistralai/mistral-small-3.2-24b-instruct",
+                            "temperature": model_config["temperature"],
+                            "max_tokens": model_config["max_tokens"],
+                        },
+                    }
+                ]
+            elif "openrouter" in primary_model:
+                # OpenRouter with Groq backup 
+                model_list = [
+                    {
+                        "model_name": f"{model_name}-group",
+                        "litellm_params": {
+                            "model": primary_model,
+                            "temperature": model_config["temperature"],
+                            "max_tokens": model_config["max_tokens"],
+                        },
+                    },
+                    {
+                        "model_name": f"{model_name}-group",
+                        "litellm_params": {
+                            "model": "groq/qwen/qwen3-32b",
+                            "temperature": model_config["temperature"],
+                            "max_tokens": model_config["max_tokens"],
+                        },
+                    }
+                ]
+            else:
+                # Default model list
+                model_list = [
+                    {
+                        "model_name": f"{model_name}-group",
+                        "litellm_params": {
+                            "model": primary_model,
+                            "temperature": model_config["temperature"],
+                            "max_tokens": model_config["max_tokens"],
+                        },
+                    }
+                ]
+            
+            # Create router with failover and load balancing
+            router_model = LiteLLMRouterModel(
+                model_id=f"{model_name}-group",
+                model_list=model_list,
+                client_kwargs={
+                    "routing_strategy": "simple-shuffle",  # Load balancing
+                    "num_retries": 2,  # Automatic retry on failure
+                    "timeout": 60,  # Timeout per request
+                }
+            )
+            
+            print(f"✅ Router model created for {model_name} with {len(model_list)} providers")
+            return router_model
+            
+        except Exception as e:
+            print(f"⚠️ Router model creation failed for {model_name}: {e}")
+            # Fallback to regular model
+            return LiteLLMModel(
+                model_id=model_config["name"],
+                temperature=model_config["temperature"],
+                max_tokens=model_config["max_tokens"],
+            )
+    
+    def _validate_rag_answer(self, final_answer: str, memory) -> bool:
+        """Validate RAG agent answers for quality and relevance"""
+        try:
+            # Check minimum length
+            if len(final_answer.strip()) < 50:
+                print("⚠️ RAG answer too short, requesting retry")
+                return False
+            
+            # Check for search context indicators
+            search_indicators = ['search results', 'knowledge base', 'documents found', 'information', 'according to']
+            has_context = any(indicator in final_answer.lower() for indicator in search_indicators)
+            
+            if not has_context:
+                print("⚠️ RAG answer lacks search context, requesting retry")
+                return False
+            
+            # Check for error messages
+            error_indicators = ['no results found', 'error occurred', 'failed to search', 'not available']
+            has_errors = any(error in final_answer.lower() for error in error_indicators)
+            
+            if has_errors:
+                print("⚠️ RAG answer contains errors, requesting retry")
+                return False
+                
+            return True
+        except Exception:
+            return True  # Don't fail on validation errors
+    
+    def _validate_research_answer(self, final_answer: str, memory) -> bool:
+        """Validate research agent answers for completeness"""
+        try:
+            # Check for web search indicators
+            web_indicators = ['search results', 'found information', 'according to', 'website', 'source']
+            has_web_context = any(indicator in final_answer.lower() for indicator in web_indicators)
+            
+            # Check minimum substantive length
+            if len(final_answer.strip()) < 100:
+                print("⚠️ Research answer too brief, requesting retry")
+                return False
+                
+            return True
+        except Exception:
+            return True
+    
+    def _validate_manager_answer(self, final_answer: str, memory) -> bool:
+        """Validate manager agent final answers"""
+        try:
+            # Ensure final answer exists and is meaningful
+            if not final_answer or len(final_answer.strip()) < 20:
+                print("⚠️ Manager answer too short, requesting retry")
+                return False
+                
+            # Check for delegation confirmation
+            if 'delegat' in final_answer.lower() or 'agent' in final_answer.lower():
+                return True  # Manager properly delegated
+                
+            return True
+        except Exception:
+            return True
 
     def _plan_interrupt_callback(self, memory_step, agent):
         """Callback to interrupt after planning for debugging"""
         if isinstance(memory_step, PlanningStep) and self.debug_mode:
             print(f"🧠 Agent Plan: {memory_step}")
             response = input("Continue with this plan? (y/n): ")
-            if response.lower() != 'y':
+            if response.lower() != "y":
                 agent.interrupt()
+    
+    def _performance_monitoring_callback(self, step_log, agent=None):
+        """Callback to monitor performance metrics"""
+        try:
+            # Update agent call counts
+            if agent and hasattr(agent, 'name'):
+                self.metrics.update_agent_call(agent.name)
+            
+            # Update token usage if available
+            if hasattr(step_log, 'token_usage') and step_log.token_usage:
+                self.metrics.update_tokens(
+                    step_log.token_usage.input_tokens,
+                    step_log.token_usage.output_tokens
+                )
+            
+            # Update tool call counts if this was a tool call
+            if hasattr(step_log, 'tool_calls') and step_log.tool_calls:
+                for tool_call in step_log.tool_calls:
+                    if hasattr(tool_call, 'tool_name'):
+                        self.metrics.update_tool_call(tool_call.tool_name)
+                        
+        except Exception as e:
+            # Don't let monitoring failures break the agent
+            print(f"⚠️ Performance monitoring error: {e}")
+    
+    def _get_callbacks(self):
+        """Get list of callbacks based on current settings"""
+        callbacks = [self._performance_monitoring_callback]  # Always monitor performance
+        
+        # Add advanced loggers if available
+        if self.loggers:
+            callbacks.extend(self.loggers)
+        
+        if self.debug_mode:
+            callbacks.append(self._plan_interrupt_callback)
+            
+        return callbacks
 
     def _setup_agents(self):
         """Setup manager and specialized agents"""
@@ -362,29 +857,18 @@ class ManagerAgentSystem:
             if SHARED_TOOLS_AVAILABLE:
                 # Use shared model pool
                 manager_model = get_model_by_config("manager", manager_model_config)
-                research_model = get_model_by_config("research_agent", research_model_config)
+                research_model = get_model_by_config(
+                    "research_agent", research_model_config
+                )
                 rag_model = get_model_by_config("rag_agent", rag_model_config)
                 print("Using shared model pool")
             else:
-                # Fallback to individual model creation
-                manager_model = LiteLLMModel(
-                    model_id=manager_model_config["name"],
-                    temperature=manager_model_config["temperature"],
-                    max_tokens=manager_model_config["max_tokens"],
-                )
-
-                research_model = LiteLLMModel(
-                    model_id=research_model_config["name"],
-                    temperature=research_model_config["temperature"],
-                    max_tokens=research_model_config["max_tokens"],
-                )
-
-                rag_model = LiteLLMModel(
-                    model_id=rag_model_config["name"],
-                    temperature=rag_model_config["temperature"],
-                    max_tokens=rag_model_config["max_tokens"],
-                )
-                print("Using individual model instances")
+                # Create enhanced router models for reliability
+                print("Creating router models with failover capabilities...")
+                manager_model = self._create_router_model(manager_model_config, "manager")
+                research_model = self._create_router_model(research_model_config, "research")
+                rag_model = self._create_router_model(rag_model_config, "rag")
+                print("Router models created with load balancing")
 
             # Create specialized agents
             specialized_agents = []
@@ -396,13 +880,13 @@ class ManagerAgentSystem:
                     research_tools = [
                         StatefulWebSearchTool(browser_session=self.browser_session),
                         StatefulWebVisitTool(browser_session=self.browser_session),
-                        BrowserNavigationTool(browser_session=self.browser_session)
+                        BrowserNavigationTool(browser_session=self.browser_session),
                     ]
                     print("Research agent using shared browser session")
                 else:
                     research_tools = [WebSearchTool(), VisitWebpageTool()]
                     print("Research agent using individual tools")
-                
+
                 research_agent = ToolCallingAgent(
                     tools=research_tools,
                     model=research_model,
@@ -414,7 +898,9 @@ class ManagerAgentSystem:
                     verbosity_level=1,
                     planning_interval=3,
                     provide_run_summary=True,
-                    step_callbacks=[self._plan_interrupt_callback] if self.debug_mode else [],
+                    max_tool_threads=3,  # Enable parallel tool execution
+                    final_answer_checks=[self._validate_research_answer],  # Quality validation
+                    step_callbacks=self._get_callbacks(),
                 )
                 specialized_agents.append(research_agent)
 
@@ -423,7 +909,7 @@ class ManagerAgentSystem:
                 # Create or reuse RAG tool instance for context sharing
                 if not self.rag_tool_instance:
                     self.rag_tool_instance = RAGTool(vector_store=self.vector_store)
-                
+
                 rag_agent = ToolCallingAgent(
                     tools=[self.rag_tool_instance],
                     model=rag_model,
@@ -435,7 +921,9 @@ class ManagerAgentSystem:
                     verbosity_level=1,
                     planning_interval=2,
                     provide_run_summary=True,
-                    step_callbacks=[self._plan_interrupt_callback] if self.debug_mode else [],
+                    max_tool_threads=2,  # Enable parallel tool execution
+                    final_answer_checks=[self._validate_rag_answer],  # RAG quality validation
+                    step_callbacks=self._get_callbacks(),
                 )
                 specialized_agents.append(rag_agent)
 
@@ -453,7 +941,11 @@ class ManagerAgentSystem:
                 planning_interval=2,
                 stream_outputs=True,
                 return_full_result=True,
-                step_callbacks=[self._plan_interrupt_callback] if self.debug_mode else [],
+                # max_tool_threads=4,  # REMOVED: Not supported by CodeAgent, only by ToolCallingAgent
+                use_structured_outputs_internally=True,  # Better response parsing
+                max_print_outputs_length=3000,  # Control code execution output length
+                final_answer_checks=[self._validate_manager_answer],  # Manager validation
+                step_callbacks=self._get_callbacks(),
             )
 
             print("Manager agent system initialized")
@@ -475,32 +967,46 @@ class ManagerAgentSystem:
         """
         # Add to conversation history
         self.conversation_history.append({"role": "user", "content": query})
-        
+
         # Check for database queries first
         if self.database_agent and self._is_database_query(query):
             try:
                 response = self.database_agent.query(query)
-                self.conversation_history.append({"role": "assistant", "content": response})
+                self.conversation_history.append(
+                    {"role": "assistant", "content": response}
+                )
                 return response
             except Exception as e:
                 error_response = f"Database query error: {e}"
-                self.conversation_history.append({"role": "assistant", "content": error_response})
+                self.conversation_history.append(
+                    {"role": "assistant", "content": error_response}
+                )
                 return error_response
-        
+
         if not self.manager_agent:
             return "Manager agent not available."
 
         try:
+            # Track performance timing
+            start_time = time.time()
+            
             # Add recent context to query if history exists
             context_query = query
             if len(self.conversation_history) > 2:  # Has previous conversation
                 recent_context = self.conversation_history[-4:]  # Last 2 exchanges
-                context_summary = "\n".join([f"{msg['role']}: {msg['content'][:100]}..." 
-                                           for msg in recent_context])
+                context_summary = "\n".join(
+                    [
+                        f"{msg['role']}: {msg['content'][:100]}..."
+                        for msg in recent_context
+                    ]
+                )
                 context_query = f"Context:\n{context_summary}\n\nCurrent query: {query}"
 
             # Run through manager agent
             result = self.manager_agent.run(context_query)
+            
+            # Update performance metrics
+            self.metrics.total_time += time.time() - start_time
 
             # Extract response from result
             if hasattr(result, "content"):
@@ -512,7 +1018,7 @@ class ManagerAgentSystem:
 
             # Add to conversation history
             self.conversation_history.append({"role": "assistant", "content": response})
-            
+
             # Keep history manageable (last 20 messages)
             if len(self.conversation_history) > 20:
                 self.conversation_history = self.conversation_history[-20:]
@@ -521,15 +1027,27 @@ class ManagerAgentSystem:
 
         except Exception as e:
             error_response = f"Error processing query: {e}"
-            self.conversation_history.append({"role": "assistant", "content": error_response})
+            self.conversation_history.append(
+                {"role": "assistant", "content": error_response}
+            )
             return error_response
-    
+
     def _is_database_query(self, query: str) -> bool:
         """Check if query is database-related"""
         db_keywords = [
-            "sql", "database", "table", "select", "query", 
-            "users", "orders", "data", "count", "total",
-            "show me", "how many", "list all"
+            "sql",
+            "database",
+            "table",
+            "select",
+            "query",
+            "users",
+            "orders",
+            "data",
+            "count",
+            "total",
+            "show me",
+            "how many",
+            "list all",
         ]
         query_lower = query.lower()
         return any(keyword in query_lower for keyword in db_keywords)
@@ -538,54 +1056,84 @@ class ManagerAgentSystem:
         """Enable debug mode with plan interruption"""
         self.debug_mode = True
         print("🐛 Debug mode enabled - will pause after agent planning")
-    
+
     def disable_debug_mode(self):
         """Disable debug mode"""
         self.debug_mode = False
         print("🐛 Debug mode disabled")
-    
+
     def clear_conversation_history(self):
         """Clear conversation history"""
         self.conversation_history = []
         print("🧹 Conversation history cleared")
-    
+
     def get_conversation_history(self) -> list:
         """Get conversation history"""
         return self.conversation_history.copy()
-    
+
     def get_browser_context(self) -> dict:
         """Get browser session context and stats"""
         if self.browser_session:
             return {
                 "stats": self.browser_session.get_session_stats(),
                 "browse_context": self.browser_session.get_browse_context(),
-                "search_context": self.browser_session.get_search_context()
+                "search_context": self.browser_session.get_search_context(),
             }
         return {"error": "Browser session not available"}
-    
+
     def get_rag_context(self) -> dict:
         """Get RAG tool context and stats"""
         if self.rag_tool_instance:
             return self.rag_tool_instance.get_search_stats()
         return {"error": "RAG tool not available"}
-    
+
     def get_model_pool_stats(self) -> dict:
         """Get shared model pool statistics"""
         if SHARED_TOOLS_AVAILABLE:
             return shared_models.get_stats()
         return {"error": "Model pool not available"}
     
+    def get_performance_metrics(self) -> dict:
+        """Get comprehensive performance metrics"""
+        return self.metrics.get_stats()
+
     def clear_all_context(self):
-        """Clear all shared context and history"""
+        """Clear all shared context and history with advanced memory management"""
         self.clear_conversation_history()
-        
+
         if self.browser_session:
             self.browser_session = SharedBrowserSession()
             print("🧹 Browser session reset")
-        
+
         if self.rag_tool_instance:
             self.rag_tool_instance.clear_context()
             print("🧹 RAG context cleared")
+        
+        # Clear agent memory if available
+        if self.manager_agent and hasattr(self.manager_agent, 'memory'):
+            self.manager_agent.memory.clear()
+            print("🧹 Manager agent memory cleared")
+        
+        # Reset performance metrics
+        self.metrics = PerformanceMetrics()
+        print("🧹 Performance metrics reset")
+    
+    def optimize_memory(self):
+        """Optimize memory usage by cleaning up old data"""
+        # Limit conversation history to last 20 messages
+        if len(self.conversation_history) > 20:
+            self.conversation_history = self.conversation_history[-20:]
+            print("🧹 Conversation history optimized")
+        
+        # Clear old cache entries in embedding service if available
+        try:
+            from src.utils.embedding_service import get_embedding_service
+            service = get_embedding_service()
+            if hasattr(service, '_manage_cache_size'):
+                service._manage_cache_size()
+                print("🧹 Embedding cache optimized")
+        except Exception:
+            pass
 
     def get_status(self) -> dict[str, Any]:
         """Get system status"""
@@ -598,13 +1146,13 @@ class ManagerAgentSystem:
             "shared_tools_available": SHARED_TOOLS_AVAILABLE,
             "config": self.config,
         }
-        
+
         # Add context manager status
         if SHARED_TOOLS_AVAILABLE:
             status["browser_session"] = self.browser_session is not None
             status["rag_tool_instance"] = self.rag_tool_instance is not None
             status["model_pool_stats"] = self.get_model_pool_stats()
-        
+
         return status
 
     def list_available_components(self) -> dict[str, list[str]]:
