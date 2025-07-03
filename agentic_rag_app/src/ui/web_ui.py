@@ -32,9 +32,9 @@ def create_manager_agent():
             raise RuntimeError("Failed to initialize refactored manager agent system")
         return system.manager_agent
     else:
-        print("⚠️  Using legacy manager system for web UI")
+        print("✅ Using current manager agent system for web UI")
         if not system.manager_agent:
-            raise RuntimeError("Failed to initialize legacy manager agent system")
+            raise RuntimeError("Failed to initialize manager agent system")
         return system.manager_agent
 
 

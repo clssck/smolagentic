@@ -1,0 +1,186 @@
+{
+  "test_summary": {
+    "timestamp": "2025-07-02T18:03:50.261120",
+    "total_tests_run": 3,
+    "configuration": {
+      "qdrant_url": "http://database-qdrant.itsfl7.easypanel.host:6333",
+      "qdrant_collection": "agentic_rag",
+      "embedding_model": "Qwen/Qwen3-Embedding-8B",
+      "retrieval_top_k": 5
+    }
+  },
+  "detailed_results": {
+    "embedding_service": {
+      "test_case_1": {
+        "text": "Simple test query",
+        "embedding_dim": 4096,
+        "processing_time": 0.8440678119659424,
+        "first_5_values": [
+          0.00872802734375,
+          -0.0194091796875,
+          -0.007476806640625,
+          -0.021240234375,
+          0.004119873046875
+        ],
+        "last_5_values": [
+          -0.00982666015625,
+          -0.0159912109375,
+          -0.01214599609375,
+          -0.00701904296875,
+          0.0252685546875
+        ],
+        "embedding_norm": 0.99986919725944
+      },
+      "test_case_2": {
+        "text": "This is a longer text that should test the embeddi...",
+        "embedding_dim": 4096,
+        "processing_time": 0.8381619453430176,
+        "first_5_values": [
+          0.028076171875,
+          -0.00799560546875,
+          0.0123291015625,
+          -0.0123291015625,
+          0.01220703125
+        ],
+        "last_5_values": [
+          0.00982666015625,
+          0.008056640625,
+          0.00811767578125,
+          0.0029754638671875,
+          0.006683349609375
+        ],
+        "embedding_norm": 1.0024303921270643
+      },
+      "test_case_3": {
+        "text": "Special characters: @#$%^&*()_+-=[]{}|;':\",./<>?",
+        "embedding_dim": 4096,
+        "processing_time": 0.8244020938873291,
+        "first_5_values": [
+          0.02099609375,
+          -0.0017547607421875,
+          -0.019775390625,
+          -0.004180908203125,
+          0.033935546875
+        ],
+        "last_5_values": [
+          0.004241943359375,
+          -0.0128173828125,
+          -0.0361328125,
+          -0.02490234375,
+          0.0157470703125
+        ],
+        "embedding_norm": 1.0029108239724873
+      },
+      "test_case_4": {
+        "text": "Numbers and dates: 2024-01-01, 42, 3.14159",
+        "embedding_dim": 4096,
+        "processing_time": 0.8345868587493896,
+        "first_5_values": [
+          0.0277099609375,
+          0.017333984375,
+          -0.0390625,
+          -0.0159912109375,
+          0.0247802734375
+        ],
+        "last_5_values": [
+          0.01007080078125,
+          0.005462646484375,
+          -0.012451171875,
+          -0.0174560546875,
+          0.0011444091796875
+        ],
+        "embedding_norm": 1.003240762406008
+      },
+      "cache_test": {
+        "first_call_time": 0.831312894821167,
+        "second_call_time": 2.288818359375e-05,
+        "speedup": 36320.614583333336
+      }
+    },
+    "vector_store_operations": {
+      "collection_info": {
+        "name": 4096,
+        "vectors_count": null,
+        "points_count": 199,
+        "status": "green"
+      },
+      "initial_point_count": 199,
+      "added_documents": [],
+      "new_point_count": 199,
+      "search_results": {
+        "Python programming language": {
+          "error": "'dict' object has no attribute 'id'"
+        },
+        "machine learning algorithms": {
+          "error": "'dict' object has no attribute 'id'"
+        },
+        "vector database storage": {
+          "error": "'dict' object has no attribute 'id'"
+        },
+        "artificial intelligence": {
+          "error": "'dict' object has no attribute 'id'"
+        },
+        "data retrieval systems": {
+          "error": "'dict' object has no attribute 'id'"
+        }
+      },
+      "filter_results": {
+        "{'category': 'programming'}": {
+          "error": "QdrantVectorStore.search_by_text_filter() got an unexpected keyword argument 'filter_dict'"
+        },
+        "{'category': 'ai'}": {
+          "error": "QdrantVectorStore.search_by_text_filter() got an unexpected keyword argument 'filter_dict'"
+        },
+        "{'language': 'english'}": {
+          "error": "QdrantVectorStore.search_by_text_filter() got an unexpected keyword argument 'filter_dict'"
+        },
+        "{'complexity': 'high'}": {
+          "error": "QdrantVectorStore.search_by_text_filter() got an unexpected keyword argument 'filter_dict'"
+        }
+      },
+      "sample_data": {
+        "error": "'dict' object has no attribute 'id'"
+      }
+    },
+    "vector_storage_internals": {
+      "detailed_collection_info": {
+        "name": 4096,
+        "vectors_count": null,
+        "points_count": 199,
+        "status": "green"
+      },
+      "collection_metrics": {
+        "status": "green",
+        "vectors_count": null,
+        "indexed_vectors_count": 0,
+        "points_count": 199,
+        "segments_count": 0,
+        "config": {}
+      },
+      "vector_space_analysis": {
+        "error": "'dict' object has no attribute 'vector'"
+      },
+      "payload_analysis": {
+        "error": "'dict' object has no attribute 'payload'"
+      },
+      "performance_benchmarks": {
+        "search_performance": {
+          "average_search_time": 0.08501238822937011,
+          "min_search_time": 0.051526784896850586,
+          "max_search_time": 0.09407806396484375,
+          "search_times": [
+            0.051526784896850586,
+            0.09320592880249023,
+            0.09248113632202148,
+            0.09407806396484375,
+            0.09377002716064453
+          ]
+        },
+        "count_performance": {
+          "average_count_time": 0.04644544919331869,
+          "point_count": 199
+        }
+      }
+    }
+  }
+}

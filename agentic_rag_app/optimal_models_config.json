@@ -1,10 +1,10 @@
 {
   "models": {
     "manager": {
-      "name": "groq/qwen/qwen3-32b",
+      "name": "openrouter/qwen/qwen3-32b",
       "temperature": 0.1,
       "max_tokens": 800,
-      "reasoning": "Blazing fast coordination and delegation via Groq infrastructure"
+      "reasoning": "Same Qwen3-32B model via OpenRouter with reliable function calling support"
     },
     "research_agent": {
       "name": "openrouter/mistralai/mistral-small-3.2-24b-instruct",

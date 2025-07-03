@@ -103,7 +103,7 @@ The modular system features:
                 from src.core.manager_agent_system import ManagerAgentSystem
                 config_path = args.config if args.config else None
                 system = ManagerAgentSystem(config_path)
-                print("⚠️  Using legacy manager system")
+                print("✅ Using current manager agent system")
 
             # Use specific agent if requested, otherwise use default
             agent_name = args.agent if args.agent else None
@@ -131,7 +131,7 @@ The modular system features:
                 from src.core.manager_agent_system import ManagerAgentSystem
                 config_path = args.config if args.config else None
                 system = ManagerAgentSystem(config_path)
-                print("⚠️  Using legacy manager system")
+                print("✅ Using current manager agent system")
 
             # Show available components
             components = system.list_available_components()

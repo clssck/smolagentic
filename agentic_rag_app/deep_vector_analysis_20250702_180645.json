@@ -1,0 +1,474 @@
+{
+  "timestamp": "2025-07-02T18:06:31.897203",
+  "collection_name": "agentic_rag",
+  "total_points": 199,
+  "sample_analysis": {
+    "total_samples": 10,
+    "payload_structures": {
+      "['_node_content', '_node_type', 'creation_date', 'doc_id', 'document_id', 'file_name', 'file_path', 'file_size', 'file_type', 'last_modified_date', 'ref_doc_id']": 6,
+      "['char_count', 'chunk_index', 'content', 'id', 'source', 'start_index']": 4
+    },
+    "content_types": {
+      "empty": 6,
+      "medium_text": 4
+    },
+    "data_sources": [
+      "/Users/clssck/Library/CloudStorage/OneDrive-Personal/RAG_Projects/test_data/ufdf_docs/ufdf_processing_pipeline.md",
+      "/Users/clssck/Library/CloudStorage/OneDrive-Personal/RAG_Projects/test_data/ufdf_docs/ultrafiltration_fundamentals.md",
+      "/Users/clssck/Library/CloudStorage/OneDrive-Personal/RAG_Projects/test_data/ufdf_docs/diafiltration_processes.md",
+      "/Users/clssck/Library/CloudStorage/OneDrive-Personal/RAG_Projects/test_data/ufdf_docs/donnan_effects_membrane_separation.md",
+      "system_description",
+      "/Users/clssck/Library/CloudStorage/OneDrive-Personal/RAG_Projects/test_data/ufdf_docs/ufdf_security_model.md",
+      "/Users/clssck/Library/CloudStorage/OneDrive-Personal/RAG_Projects/test_data/ufdf_docs/ufdf_overview.md"
+    ],
+    "file_types": [
+      "text/markdown"
+    ]
+  },
+  "search_analysis": {
+    "artificial intelligence machine learning": {
+      "query": "artificial intelligence machine learning",
+      "num_results": 5,
+      "results": [
+        {
+          "rank": 1,
+          "id": "eeba7bb0-7d29-4b38-8424-16cedb269350",
+          "score": 0.62013024,
+          "content_preview": "Artificial Intelligence is transforming how we work and live. Machine learning algorithms can now process vast amounts of data to identify patterns an...",
+          "source": "AI Overview Test"
+        },
+        {
+          "rank": 2,
+          "id": "ba97874e-6771-4282-a6bd-3b37dcbc75ec",
+          "score": 0.6025826,
+          "content_preview": "Claude is an AI assistant created by Anthropic. It can help with analysis, writing, coding, and reasoning tasks....",
+          "source": "claude_info"
+        },
+        {
+          "rank": 3,
+          "id": "27d83edf-4149-4453-b281-503a0435a5d0",
+          "score": 0.5137019,
+          "content_preview": "The Agentic RAG System is a sophisticated document question-answering system that combines:\n        \n        1. smolagents framework for intelligent a...",
+          "source": "system_description"
+        },
+        {
+          "rank": 4,
+          "id": "b9dc3bf0-9b11-42ae-8b8f-0e3bdf0a9609",
+          "score": 0.5137019,
+          "content_preview": "The Agentic RAG System is a sophisticated document question-answering system that combines:\n        \n        1. smolagents framework for intelligent a...",
+          "source": "system_description"
+        },
+        {
+          "rank": 5,
+          "id": "584f6cdd-ae1d-4ae4-97d1-c57d9f9eabdc",
+          "score": 0.5137019,
+          "content_preview": "The Agentic RAG System is a sophisticated document question-answering system that combines:\n        \n        1. smolagents framework for intelligent a...",
+          "source": "system_description"
+        }
+      ]
+    },
+    "vector database storage retrieval": {
+      "query": "vector database storage retrieval",
+      "num_results": 5,
+      "results": [
+        {
+          "rank": 1,
+          "id": "c2fb91dc-2c56-46a1-9608-330f282985f4",
+          "score": 0.69422746,
+          "content_preview": "storing them in Qdrant, and then using an intelligent agent to retrieve\n        relevant context and generate comprehensive answers....",
+          "source": "system_description"
+        },
+        {
+          "rank": 2,
+          "id": "021a50ea-e48c-490f-b054-22e50504f974",
+          "score": 0.69422746,
+          "content_preview": "storing them in Qdrant, and then using an intelligent agent to retrieve\n        relevant context and generate comprehensive answers....",
+          "source": "system_description"
+        },
+        {
+          "rank": 3,
+          "id": "86f0fa23-d108-4109-9162-6f391a5a4d94",
+          "score": 0.69422746,
+          "content_preview": "storing them in Qdrant, and then using an intelligent agent to retrieve\n        relevant context and generate comprehensive answers....",
+          "source": "system_description"
+        },
+        {
+          "rank": 4,
+          "id": "aa301e22-b027-4f31-a3e4-380cfb88cfb5",
+          "score": 0.69422746,
+          "content_preview": "storing them in Qdrant, and then using an intelligent agent to retrieve\n        relevant context and generate comprehensive answers....",
+          "source": "system_description"
+        },
+        {
+          "rank": 5,
+          "id": "27d83edf-4149-4453-b281-503a0435a5d0",
+          "score": 0.6841204,
+          "content_preview": "The Agentic RAG System is a sophisticated document question-answering system that combines:\n        \n        1. smolagents framework for intelligent a...",
+          "source": "system_description"
+        }
+      ]
+    },
+    "python programming code development": {
+      "query": "python programming code development",
+      "num_results": 5,
+      "results": [
+        {
+          "rank": 1,
+          "id": "ba97874e-6771-4282-a6bd-3b37dcbc75ec",
+          "score": 0.52215683,
+          "content_preview": "Claude is an AI assistant created by Anthropic. It can help with analysis, writing, coding, and reasoning tasks....",
+          "source": "claude_info"
+        },
+        {
+          "rank": 2,
+          "id": "0576c459-ef6f-42d3-9ed1-4eeb98e0c5bc",
+          "score": 0.47454205,
+          "content_preview": "Key Features:\n        - Multi-step reasoning capabilities through CodeAgent\n        - Semantic document search and retrieval\n        - Real-time query...",
+          "source": "system_description"
+        },
+        {
+          "rank": 3,
+          "id": "025741ab-2937-44d9-ae9a-be2c00063690",
+          "score": 0.47454205,
+          "content_preview": "Key Features:\n        - Multi-step reasoning capabilities through CodeAgent\n        - Semantic document search and retrieval\n        - Real-time query...",
+          "source": "system_description"
+        },
+        {
+          "rank": 4,
+          "id": "539e8e0d-3a94-48f1-8311-7b2bc5d32ec9",
+          "score": 0.47454205,
+          "content_preview": "Key Features:\n        - Multi-step reasoning capabilities through CodeAgent\n        - Semantic document search and retrieval\n        - Real-time query...",
+          "source": "system_description"
+        },
+        {
+          "rank": 5,
+          "id": "9be8f106-2570-48b2-b734-9a6463847eb5",
+          "score": 0.47454205,
+          "content_preview": "Key Features:\n        - Multi-step reasoning capabilities through CodeAgent\n        - Semantic document search and retrieval\n        - Real-time query...",
+          "source": "system_description"
+        }
+      ]
+    },
+    "data processing analysis": {
+      "query": "data processing analysis",
+      "num_results": 5,
+      "results": [
+        {
+          "rank": 1,
+          "id": "80ab4a92-a653-424c-b2db-feedfa5aca5e",
+          "score": 0.6112777,
+          "content_preview": "...",
+          "source": "/Users/clssck/Library/CloudStorage/OneDrive-Personal/RAG_Projects/test_data/ufdf_docs/ufdf_processing_pipeline.md"
+        },
+        {
+          "rank": 2,
+          "id": "ba97874e-6771-4282-a6bd-3b37dcbc75ec",
+          "score": 0.60147864,
+          "content_preview": "Claude is an AI assistant created by Anthropic. It can help with analysis, writing, coding, and reasoning tasks....",
+          "source": "claude_info"
+        },
+        {
+          "rank": 3,
+          "id": "01b0d2d5-b0ac-4dde-8bbb-3fc1ac95c769",
+          "score": 0.5870186,
+          "content_preview": "...",
+          "source": "/Users/clssck/Library/CloudStorage/OneDrive-Personal/RAG_Projects/test_data/ufdf_docs/ufdf_security_model.md"
+        },
+        {
+          "rank": 4,
+          "id": "49d483b4-355b-4f8e-992d-42bd73207b3d",
+          "score": 0.57556826,
+          "content_preview": "...",
+          "source": "/Users/clssck/Library/CloudStorage/OneDrive-Personal/RAG_Projects/test_data/ufdf_docs/ufdf_processing_pipeline.md"
+        },
+        {
+          "rank": 5,
+          "id": "442564c4-dbda-4618-adc1-4341a9777f3e",
+          "score": 0.5711715,
+          "content_preview": "...",
+          "source": "/Users/clssck/Library/CloudStorage/OneDrive-Personal/RAG_Projects/test_data/ufdf_docs/ufdf_processing_pipeline.md"
+        }
+      ]
+    },
+    "neural networks deep learning": {
+      "query": "neural networks deep learning",
+      "num_results": 5,
+      "results": [
+        {
+          "rank": 1,
+          "id": "ba97874e-6771-4282-a6bd-3b37dcbc75ec",
+          "score": 0.55153954,
+          "content_preview": "Claude is an AI assistant created by Anthropic. It can help with analysis, writing, coding, and reasoning tasks....",
+          "source": "claude_info"
+        },
+        {
+          "rank": 2,
+          "id": "eeba7bb0-7d29-4b38-8424-16cedb269350",
+          "score": 0.5481672,
+          "content_preview": "Artificial Intelligence is transforming how we work and live. Machine learning algorithms can now process vast amounts of data to identify patterns an...",
+          "source": "AI Overview Test"
+        },
+        {
+          "rank": 3,
+          "id": "27d83edf-4149-4453-b281-503a0435a5d0",
+          "score": 0.47424233,
+          "content_preview": "The Agentic RAG System is a sophisticated document question-answering system that combines:\n        \n        1. smolagents framework for intelligent a...",
+          "source": "system_description"
+        },
+        {
+          "rank": 4,
+          "id": "b9dc3bf0-9b11-42ae-8b8f-0e3bdf0a9609",
+          "score": 0.47424233,
+          "content_preview": "The Agentic RAG System is a sophisticated document question-answering system that combines:\n        \n        1. smolagents framework for intelligent a...",
+          "source": "system_description"
+        },
+        {
+          "rank": 5,
+          "id": "584f6cdd-ae1d-4ae4-97d1-c57d9f9eabdc",
+          "score": 0.47424233,
+          "content_preview": "The Agentic RAG System is a sophisticated document question-answering system that combines:\n        \n        1. smolagents framework for intelligent a...",
+          "source": "system_description"
+        }
+      ]
+    },
+    "natural language processing NLP": {
+      "query": "natural language processing NLP",
+      "num_results": 5,
+      "results": [
+        {
+          "rank": 1,
+          "id": "ba97874e-6771-4282-a6bd-3b37dcbc75ec",
+          "score": 0.59714186,
+          "content_preview": "Claude is an AI assistant created by Anthropic. It can help with analysis, writing, coding, and reasoning tasks....",
+          "source": "claude_info"
+        },
+        {
+          "rank": 2,
+          "id": "9c6055a7-dd36-4a4d-9a8c-71ccb203d9dd",
+          "score": 0.5368955,
+          "content_preview": "This document should be successfully ingested and retrievable through semantic search queries....",
+          "source": "test_document.txt"
+        },
+        {
+          "rank": 3,
+          "id": "ac4d673d-77d2-4e51-9de7-5dd80a232945",
+          "score": 0.5238359,
+          "content_preview": "Technical Details:\nThe system supports multiple file formats and can process:\n1. Plain text files (.txt)\n2. Markdown files (.md) \n3. Directory ingesti...",
+          "source": "test_document.txt"
+        },
+        {
+          "rank": 4,
+          "id": "b9dc3bf0-9b11-42ae-8b8f-0e3bdf0a9609",
+          "score": 0.5174242,
+          "content_preview": "The Agentic RAG System is a sophisticated document question-answering system that combines:\n        \n        1. smolagents framework for intelligent a...",
+          "source": "system_description"
+        },
+        {
+          "rank": 5,
+          "id": "27d83edf-4149-4453-b281-503a0435a5d0",
+          "score": 0.5174242,
+          "content_preview": "The Agentic RAG System is a sophisticated document question-answering system that combines:\n        \n        1. smolagents framework for intelligent a...",
+          "source": "system_description"
+        }
+      ]
+    },
+    "information retrieval search": {
+      "query": "information retrieval search",
+      "num_results": 5,
+      "results": [
+        {
+          "rank": 1,
+          "id": "9c6055a7-dd36-4a4d-9a8c-71ccb203d9dd",
+          "score": 0.659521,
+          "content_preview": "This document should be successfully ingested and retrievable through semantic search queries....",
+          "source": "test_document.txt"
+        },
+        {
+          "rank": 2,
+          "id": "ba97874e-6771-4282-a6bd-3b37dcbc75ec",
+          "score": 0.64986026,
+          "content_preview": "Claude is an AI assistant created by Anthropic. It can help with analysis, writing, coding, and reasoning tasks....",
+          "source": "claude_info"
+        },
+        {
+          "rank": 3,
+          "id": "584f6cdd-ae1d-4ae4-97d1-c57d9f9eabdc",
+          "score": 0.6061478,
+          "content_preview": "The Agentic RAG System is a sophisticated document question-answering system that combines:\n        \n        1. smolagents framework for intelligent a...",
+          "source": "system_description"
+        },
+        {
+          "rank": 4,
+          "id": "27d83edf-4149-4453-b281-503a0435a5d0",
+          "score": 0.6061478,
+          "content_preview": "The Agentic RAG System is a sophisticated document question-answering system that combines:\n        \n        1. smolagents framework for intelligent a...",
+          "source": "system_description"
+        },
+        {
+          "rank": 5,
+          "id": "b9dc3bf0-9b11-42ae-8b8f-0e3bdf0a9609",
+          "score": 0.6061478,
+          "content_preview": "The Agentic RAG System is a sophisticated document question-answering system that combines:\n        \n        1. smolagents framework for intelligent a...",
+          "source": "system_description"
+        }
+      ]
+    },
+    "document processing text": {
+      "query": "document processing text",
+      "num_results": 5,
+      "results": [
+        {
+          "rank": 1,
+          "id": "9c6055a7-dd36-4a4d-9a8c-71ccb203d9dd",
+          "score": 0.6783892,
+          "content_preview": "This document should be successfully ingested and retrievable through semantic search queries....",
+          "source": "test_document.txt"
+        },
+        {
+          "rank": 2,
+          "id": "ac4d673d-77d2-4e51-9de7-5dd80a232945",
+          "score": 0.6308313,
+          "content_preview": "Technical Details:\nThe system supports multiple file formats and can process:\n1. Plain text files (.txt)\n2. Markdown files (.md) \n3. Directory ingesti...",
+          "source": "test_document.txt"
+        },
+        {
+          "rank": 3,
+          "id": "80ab4a92-a653-424c-b2db-feedfa5aca5e",
+          "score": 0.6268971,
+          "content_preview": "...",
+          "source": "/Users/clssck/Library/CloudStorage/OneDrive-Personal/RAG_Projects/test_data/ufdf_docs/ufdf_processing_pipeline.md"
+        },
+        {
+          "rank": 4,
+          "id": "8cc37f7d-5ab7-4a2c-8375-1be60c75c111",
+          "score": 0.6143303,
+          "content_preview": "This is test content for file ingestion testing....",
+          "source": "/var/folders/8n/hyq6492x4sxcvxz8y6jg_yb80000gn/T/tmpnc_6moqd.txt"
+        },
+        {
+          "rank": 5,
+          "id": "ec4d5b41-283f-4ce0-a393-896937178fb6",
+          "score": 0.60285115,
+          "content_preview": "This is a test document for unit testing...",
+          "source": "unit_test"
+        }
+      ]
+    },
+    "embeddings similarity search": {
+      "query": "embeddings similarity search",
+      "num_results": 5,
+      "results": [
+        {
+          "rank": 1,
+          "id": "584f6cdd-ae1d-4ae4-97d1-c57d9f9eabdc",
+          "score": 0.6246694,
+          "content_preview": "The Agentic RAG System is a sophisticated document question-answering system that combines:\n        \n        1. smolagents framework for intelligent a...",
+          "source": "system_description"
+        },
+        {
+          "rank": 2,
+          "id": "27d83edf-4149-4453-b281-503a0435a5d0",
+          "score": 0.6246694,
+          "content_preview": "The Agentic RAG System is a sophisticated document question-answering system that combines:\n        \n        1. smolagents framework for intelligent a...",
+          "source": "system_description"
+        },
+        {
+          "rank": 3,
+          "id": "07d8b0ba-e67d-48f0-bf28-47dfcc78d3b3",
+          "score": 0.6246694,
+          "content_preview": "The Agentic RAG System is a sophisticated document question-answering system that combines:\n        \n        1. smolagents framework for intelligent a...",
+          "source": "system_description"
+        },
+        {
+          "rank": 4,
+          "id": "b9dc3bf0-9b11-42ae-8b8f-0e3bdf0a9609",
+          "score": 0.6246694,
+          "content_preview": "The Agentic RAG System is a sophisticated document question-answering system that combines:\n        \n        1. smolagents framework for intelligent a...",
+          "source": "system_description"
+        },
+        {
+          "rank": 5,
+          "id": "ba97874e-6771-4282-a6bd-3b37dcbc75ec",
+          "score": 0.61826646,
+          "content_preview": "Claude is an AI assistant created by Anthropic. It can help with analysis, writing, coding, and reasoning tasks....",
+          "source": "claude_info"
+        }
+      ]
+    },
+    "RAG retrieval augmented generation": {
+      "query": "RAG retrieval augmented generation",
+      "num_results": 5,
+      "results": [
+        {
+          "rank": 1,
+          "id": "27d83edf-4149-4453-b281-503a0435a5d0",
+          "score": 0.78523225,
+          "content_preview": "The Agentic RAG System is a sophisticated document question-answering system that combines:\n        \n        1. smolagents framework for intelligent a...",
+          "source": "system_description"
+        },
+        {
+          "rank": 2,
+          "id": "b9dc3bf0-9b11-42ae-8b8f-0e3bdf0a9609",
+          "score": 0.78523225,
+          "content_preview": "The Agentic RAG System is a sophisticated document question-answering system that combines:\n        \n        1. smolagents framework for intelligent a...",
+          "source": "system_description"
+        },
+        {
+          "rank": 3,
+          "id": "07d8b0ba-e67d-48f0-bf28-47dfcc78d3b3",
+          "score": 0.78523225,
+          "content_preview": "The Agentic RAG System is a sophisticated document question-answering system that combines:\n        \n        1. smolagents framework for intelligent a...",
+          "source": "system_description"
+        },
+        {
+          "rank": 4,
+          "id": "584f6cdd-ae1d-4ae4-97d1-c57d9f9eabdc",
+          "score": 0.78523225,
+          "content_preview": "The Agentic RAG System is a sophisticated document question-answering system that combines:\n        \n        1. smolagents framework for intelligent a...",
+          "source": "system_description"
+        },
+        {
+          "rank": 5,
+          "id": "5e658a00-af23-4453-8a47-d2aec6a7e227",
+          "score": 0.76450294,
+          "content_preview": "Retrieval-Augmented Generation (RAG) is a powerful technique that combines \n        information retrieval with language generation. It works by first ...",
+          "source": "test_document"
+        }
+      ]
+    }
+  },
+  "vector_space_analysis": {
+    "error": "No vectors found"
+  },
+  "performance_analysis": {
+    "embedding_performance": [
+      {
+        "text_length": 11,
+        "words": 2,
+        "embedding_time": 0.8184561729431152,
+        "embedding_dimension": 4096,
+        "tokens_per_second": 2.4436250420204297
+      },
+      {
+        "text_length": 92,
+        "words": 15,
+        "embedding_time": 0.8170840740203857,
+        "embedding_dimension": 4096,
+        "tokens_per_second": 18.357963980614507
+      },
+      {
+        "text_length": 234,
+        "words": 36,
+        "embedding_time": 0.8282301425933838,
+        "embedding_dimension": 4096,
+        "tokens_per_second": 43.466179445335705
+      }
+    ],
+    "search_performance": {
+      "average_search_time": 0.09235179424285889,
+      "min_search_time": 0.09182214736938477,
+      "max_search_time": 0.09310388565063477,
+      "search_trials": 10
+    }
+  }
+}
