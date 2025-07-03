@@ -19,31 +19,40 @@ class Config:
     # OpenRouter configuration
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-    # Model configurations
+    # Model configurations - Mistral prioritized for function calling excellence
     MODELS: ClassVar[dict] = {
-        "qwen/qwen3-235b-a22b": {
-            "priority": 3,
-            "max_tokens": 8000,
-            "context_window": 32000,
+        "openrouter/mistralai/mistral-small-3.2-24b-instruct": {
+            "priority": 1,  # Highest priority - excellent function calling
+            "max_tokens": 8192,
+            "context_window": 32768,
             "performance_score": 0.95,
+            "function_calling": "excellent",
+            "cost_efficiency": "high",
+            "recommended_use": ["manager", "coordination", "rag"]
         },
-        "qwen/qwen3-30b-a3b": {
+        "openrouter/mistralai/mistral-medium-2312": {
             "priority": 2,
-            "max_tokens": 6000,
-            "context_window": 16000,
-            "performance_score": 0.85,
+            "max_tokens": 8192,
+            "context_window": 32768,
+            "performance_score": 0.92,
+            "function_calling": "excellent",
+            "recommended_use": ["research", "complex_reasoning"]
         },
-        "qwen/qwen3-32b": {
-            "priority": 1,
+        "openrouter/mistralai/mistral-large-2407": {
+            "priority": 3,
+            "max_tokens": 16384,
+            "context_window": 128000,
+            "performance_score": 0.98,
+            "function_calling": "excellent",
+            "recommended_use": ["complex_tasks", "long_context"]
+        },
+        "qwen/qwen-2.5-7b-instruct": {
+            "priority": 4,  # Fallback option
             "max_tokens": 4000,
             "context_window": 8000,
             "performance_score": 0.75,
-        },
-        "mistralai/mistral-small-3.2-24b-instruct": {
-            "priority": 2,
-            "max_tokens": 8000,
-            "context_window": 32000,
-            "performance_score": 0.90,
+            "function_calling": "good",
+            "recommended_use": ["simple_tasks", "fallback"]
         },
     }
 

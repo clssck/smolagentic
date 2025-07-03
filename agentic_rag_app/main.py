@@ -93,17 +93,23 @@ The modular system features:
         print("=" * 60)
 
         try:
-            # Try new refactored system first, fallback to old system
+            # Import and create debug-enabled manager system
             try:
                 from src.core.refactored_manager_system import RefactoredManagerSystem
+                from src.core.debug_agent_wrapper import create_debug_manager
+
                 config_path = args.config if args.config else None
-                system = RefactoredManagerSystem(config_path)
-                print("✅ Using refactored modular agent system")
+                base_system = RefactoredManagerSystem(config_path)
+                system = create_debug_manager(base_system)
+                print("✅ Using refactored system with debug output")
             except ImportError:
                 from src.core.manager_agent_system import ManagerAgentSystem
+                from src.core.debug_agent_wrapper import create_debug_manager
+
                 config_path = args.config if args.config else None
-                system = ManagerAgentSystem(config_path)
-                print("✅ Using current manager agent system")
+                base_system = ManagerAgentSystem(config_path)
+                system = create_debug_manager(base_system)
+                print("✅ Using manager system with debug output")
 
             # Use specific agent if requested, otherwise use default
             agent_name = args.agent if args.agent else None
@@ -121,17 +127,23 @@ The modular system features:
         print("🚀 Starting Modular RAG CLI...")
 
         try:
-            # Try new refactored system first, fallback to old system
+            # Import and create debug-enabled manager system for CLI
             try:
                 from src.core.refactored_manager_system import RefactoredManagerSystem
+                from src.core.debug_agent_wrapper import create_debug_manager
+
                 config_path = args.config if args.config else None
-                system = RefactoredManagerSystem(config_path)
-                print("✅ Using refactored modular agent system")
+                base_system = RefactoredManagerSystem(config_path)
+                system = create_debug_manager(base_system)
+                print("✅ Using refactored system with debug output")
             except ImportError:
                 from src.core.manager_agent_system import ManagerAgentSystem
+                from src.core.debug_agent_wrapper import create_debug_manager
+
                 config_path = args.config if args.config else None
-                system = ManagerAgentSystem(config_path)
-                print("✅ Using current manager agent system")
+                base_system = ManagerAgentSystem(config_path)
+                system = create_debug_manager(base_system)
+                print("✅ Using manager system with debug output")
 
             # Show available components
             components = system.list_available_components()
@@ -198,9 +210,9 @@ The modular system features:
         print("💡 Use --chat 'question' for single queries or --cli for CLI")
 
         try:
-            from src.ui.web_ui import launch_web_ui
+            from src.ui.enhanced_gradio_ui import launch_enhanced_ui
 
-            launch_web_ui(
+            launch_enhanced_ui(
                 server_port=args.port,
                 server_name=args.host,
                 share=args.share,

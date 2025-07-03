@@ -11,6 +11,7 @@ import requests
 import time
 from typing import List, Union, Dict, Any
 from .config import Config
+from .connection_pool import get_connection_pool_manager, async_http_request, sync_http_request
 
 try:
     import aiohttp
@@ -49,22 +50,27 @@ class EmbeddingService:
         self.cache_hits = 0
         self.cache_misses = 0
         
-        # Optimized connection pooling for better performance
-        self.connector = None
+        # Enhanced connection pooling through centralized pool manager
+        self.pool_manager = get_connection_pool_manager()
+        self.pool_name = 'deepinfra_embedding'
+        
+        # Connection pool configuration for DeepInfra API
         self.connector_config = {
-            'limit': 100,              # Total connection limit
-            'limit_per_host': 10,      # Per-host limit  
-            'keepalive_timeout': 300,  # Keep connections alive longer
+            'limit': 30,               # Optimized for embedding API
+            'limit_per_host': 8,       # Balanced per-host connections
+            'keepalive_timeout': 45,   # Longer keep-alive for embedding requests
             'enable_cleanup_closed': True,
-            'use_dns_cache': True,     # DNS caching
-            'ttl_dns_cache': 300       # DNS cache TTL
+            'use_dns_cache': True,
+            'ttl_dns_cache': 120       # Longer DNS cache for stable API endpoints
         } if ASYNC_AVAILABLE else None
         
         # Performance tracking
         self.total_requests = 0
         self.total_time = 0.0
         
-        logger.info(f"Initialized embedding service with model: {self.config.DEEPINFRA_EMBEDDING_MODEL}")
+        logger.info(f"Initialized enhanced embedding service with model: {self.config.DEEPINFRA_EMBEDDING_MODEL}")
+        logger.info(f"Connection pooling: {'enabled' if ASYNC_AVAILABLE else 'disabled'}")
+        logger.info(f"Cache size limit: {cache_size}")
     
     def _get_cache_key(self, text: str) -> str:
         """Generate cache key for text."""
@@ -107,7 +113,7 @@ class EmbeddingService:
     
     def embed_texts(self, texts: List[str]) -> List[List[float]]:
         """
-        Generate embeddings for multiple texts with retry logic.
+        Generate embeddings for multiple texts with connection pooling and retry logic.
         
         Args:
             texts: List of texts to embed
@@ -121,11 +127,17 @@ class EmbeddingService:
                 start_time = time.time()
                 payload = {'inputs': texts}
                 
-                response = requests.post(
+                # Use connection pool for better performance
+                session = self.pool_manager.get_sync_session(
+                    self.pool_name,
+                    session_config={'timeout': 45}
+                )
+                
+                response = session.post(
                     self.api_url,
                     headers=self.headers,
                     json=payload,
-                    timeout=45  # Increased timeout
+                    timeout=45
                 )
                 
                 if response.status_code == 200:
@@ -137,9 +149,10 @@ class EmbeddingService:
                     
                     # Track performance
                     self.total_requests += 1
-                    self.total_time += time.time() - start_time
+                    elapsed = time.time() - start_time
+                    self.total_time += elapsed
                     
-                    logger.debug(f"Generated {len(embeddings)} embeddings in {time.time() - start_time:.2f}s")
+                    logger.debug(f"Generated {len(embeddings)} embeddings in {elapsed:.2f}s (pooled)")
                     return embeddings
                 else:
                     error_msg = f"DeepInfra API error {response.status_code}: {response.text}"
@@ -147,7 +160,7 @@ class EmbeddingService:
                     raise Exception(error_msg)
                     
             except Exception as e:
-                wait_time = (2 ** attempt) * 1  # Exponential backoff
+                wait_time = min(2 ** attempt, 8)  # Capped exponential backoff
                 logger.warning(f"Embedding attempt {attempt + 1} failed: {e}")
                 
                 if attempt < retries - 1:
@@ -220,9 +233,8 @@ class EmbeddingService:
         return embedding
     
     async def _generate_embedding_async(self, text: str, retries: int = 3) -> List[float]:
-        """Generate embedding asynchronously with retry logic."""
+        """Generate embedding asynchronously using connection pool manager."""
         if not ASYNC_AVAILABLE:
-            # Fallback to sync version
             return self._generate_embedding_sync(text, retries)
         
         for attempt in range(retries):
@@ -230,53 +242,58 @@ class EmbeddingService:
                 start_time = time.time()
                 payload = {'inputs': [text]}
                 
-                # Create connector with optimized settings if not exists
-                if not self.connector and self.connector_config:
-                    self.connector = aiohttp.TCPConnector(**self.connector_config)
-                
-                async with aiohttp.ClientSession(connector=self.connector) as session:
-                    async with session.post(
-                        self.api_url,
-                        headers=self.headers,
-                        json=payload,
-                        timeout=aiohttp.ClientTimeout(total=45)
-                    ) as response:
+                # Use connection pool manager for optimized async requests
+                async with self.pool_manager.async_request(
+                    'POST',
+                    self.api_url,
+                    pool_name=self.pool_name,
+                    headers=self.headers,
+                    json=payload
+                ) as response:
+                    
+                    if response.status == 200:
+                        result = await response.json()
+                        embeddings = result.get('embeddings', [])
                         
-                        if response.status == 200:
-                            result = await response.json()
-                            embeddings = result.get('embeddings', [])
+                        if embeddings and len(embeddings) > 0:
+                            elapsed = time.time() - start_time
+                            self.total_requests += 1
+                            self.total_time += elapsed
                             
-                            if embeddings and len(embeddings) > 0:
-                                self.total_requests += 1
-                                self.total_time += time.time() - start_time
-                                
-                                logger.debug(f"Generated async embedding in {time.time() - start_time:.2f}s")
-                                return embeddings[0]
-                            else:
-                                raise ValueError("Empty embedding response")
+                            logger.debug(f"Async embedding generated in {elapsed:.2f}s (pooled)")
+                            return embeddings[0]
                         else:
-                            error_text = await response.text()
-                            raise Exception(f"API error {response.status}: {error_text}")
-                            
+                            raise ValueError("Empty embedding response")
+                    else:
+                        error_text = await response.text()
+                        raise Exception(f"API error {response.status}: {error_text}")
+                        
+            except asyncio.TimeoutError:
+                logger.warning(f"Async embedding timeout on attempt {attempt + 1}")
+                if attempt == retries - 1:
+                    raise Exception("All embedding requests timed out")
+                    
             except Exception as e:
-                wait_time = (2 ** attempt) * 1
+                wait_time = min(2 ** attempt, 8)
                 logger.warning(f"Async embedding attempt {attempt + 1} failed: {e}")
                 
                 if attempt < retries - 1:
-                    logger.info(f"Retrying in {wait_time}s...")
                     await asyncio.sleep(wait_time)
                 else:
                     logger.error(f"All {retries} async embedding attempts failed")
                     raise
     
     def _generate_embedding_sync(self, text: str, retries: int = 3) -> List[float]:
-        """Synchronous embedding generation (fallback)."""
+        """Synchronous embedding generation using connection pool."""
         for attempt in range(retries):
             try:
                 start_time = time.time()
                 payload = {'inputs': [text]}
                 
-                response = requests.post(
+                # Use connection pool for sync requests
+                session = self.pool_manager.get_sync_session(self.pool_name)
+                
+                response = session.post(
                     self.api_url,
                     headers=self.headers,
                     json=payload,
@@ -288,8 +305,10 @@ class EmbeddingService:
                     embeddings = result.get('embeddings', [])
                     
                     if embeddings and len(embeddings) > 0:
+                        elapsed = time.time() - start_time
                         self.total_requests += 1
-                        self.total_time += time.time() - start_time
+                        self.total_time += elapsed
+                        logger.debug(f"Sync embedding generated in {elapsed:.2f}s (pooled)")
                         return embeddings[0]
                     else:
                         raise ValueError("Empty embedding response")
@@ -297,7 +316,7 @@ class EmbeddingService:
                     raise Exception(f"API error {response.status_code}: {response.text}")
                     
             except Exception as e:
-                wait_time = (2 ** attempt) * 1
+                wait_time = min(2 ** attempt, 8)
                 logger.warning(f"Sync embedding attempt {attempt + 1} failed: {e}")
                 
                 if attempt < retries - 1:
@@ -307,7 +326,7 @@ class EmbeddingService:
     
     def embed_text_fast(self, text: str) -> List[float]:
         """
-        Fast embedding that tries async first, falls back to sync.
+        Fast embedding that intelligently handles async/sync execution.
         
         Args:
             text: Text to embed
@@ -315,21 +334,39 @@ class EmbeddingService:
         Returns:
             Embedding vector
         """
+        # Check cache first for immediate return
+        cache_key = self._get_cache_key(text)
+        if cache_key in self.embedding_cache:
+            self.cache_hits += 1
+            return self.embedding_cache[cache_key]
+        
         if ASYNC_AVAILABLE:
             try:
-                # Try to run async in the current event loop
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # If loop is already running, create a task
+                # Check if we're in an async context
+                try:
+                    loop = asyncio.get_running_loop()
+                    # We're in an async context, use thread pool
                     import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(asyncio.run, self.embed_text_async(text))
+                    import threading
+                    
+                    def run_async_in_thread():
+                        new_loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(new_loop)
+                        try:
+                            return new_loop.run_until_complete(self.embed_text_async(text))
+                        finally:
+                            new_loop.close()
+                    
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                        future = executor.submit(run_async_in_thread)
                         return future.result(timeout=60)
-                else:
-                    # If no loop is running, start one
+                        
+                except RuntimeError:
+                    # No running loop, safe to run async directly
                     return asyncio.run(self.embed_text_async(text))
+                    
             except Exception as e:
-                logger.warning(f"Async embedding failed, falling back to sync: {e}")
+                logger.debug(f"Async embedding failed, using sync: {e}")
                 return self.embed_text(text)
         else:
             return self.embed_text(text)
@@ -349,16 +386,20 @@ class EmbeddingService:
         cache_hit_rate = (self.cache_hits / total_queries * 100) if total_queries > 0 else 0
         avg_api_time = (self.total_time / self.total_requests) if self.total_requests > 0 else 0
         
+        pool_stats = self.pool_manager.get_pool_stats() if self.pool_manager else {}
+        
         return {
             'total_queries': total_queries,
             'cache_hits': self.cache_hits,
             'cache_misses': self.cache_misses,
             'cache_hit_rate_percent': round(cache_hit_rate, 1),
             'total_api_requests': self.total_requests,
-            'average_api_time_seconds': round(avg_api_time, 2),
+            'average_api_time_seconds': round(avg_api_time, 3),
             'cache_size': len(self.embedding_cache),
-            'connection_pooling': 'enabled' if self.connector_config else 'disabled',
-            'optimization_level': 'enhanced_v2'
+            'connection_pooling': 'enhanced_v3',
+            'pool_name': self.pool_name,
+            'pool_stats': pool_stats,
+            'optimization_level': 'enhanced_v3_with_pooling'
         }
 
     def test_connection(self) -> Dict[str, Any]:

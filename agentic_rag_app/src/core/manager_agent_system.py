@@ -132,8 +132,6 @@ except ImportError:
     VECTOR_STORE_AVAILABLE = False
 
 
-
-
 class RAGTool(Tool):
     """RAG tool with search context and query history"""
 
@@ -168,72 +166,76 @@ class RAGTool(Tool):
         """Extract actual text content from search result, handling _node_content JSON"""
         import json
         import os
-        
+
         # Try to get content from file_path first for full context
-        if 'payload' in result and 'file_path' in result['payload']:
+        if "payload" in result and "file_path" in result["payload"]:
             try:
-                file_path = result['payload']['file_path']
+                file_path = result["payload"]["file_path"]
                 if os.path.exists(file_path):
-                    with open(file_path, 'r', encoding='utf-8') as f:
+                    with open(file_path, "r", encoding="utf-8") as f:
                         file_content = f.read().strip()
                         if file_content:
                             # Return first 2000 characters for comprehensive content
-                            return file_content[:2000] + "..." if len(file_content) > 2000 else file_content
+                            return (
+                                file_content[:2000] + "..."
+                                if len(file_content) > 2000
+                                else file_content
+                            )
             except Exception as e:
                 self.logger.warning(f"Failed to read file content: {e}")
-        
+
         # Try different content fields in order of preference
-        content = result.get('content', '').strip()
+        content = result.get("content", "").strip()
         if content:
             return content
-            
-        text = result.get('text', '').strip()
+
+        text = result.get("text", "").strip()
         if text:
             return text
-            
+
         # Try to extract from _node_content JSON field
-        if 'payload' in result and '_node_content' in result['payload']:
+        if "payload" in result and "_node_content" in result["payload"]:
             try:
-                node_content_str = result['payload']['_node_content']
+                node_content_str = result["payload"]["_node_content"]
                 node_data = json.loads(node_content_str)
-                node_text = node_data.get('text', '').strip()
+                node_text = node_data.get("text", "").strip()
                 if node_text:
                     return node_text
             except (json.JSONDecodeError, KeyError) as e:
                 self.logger.warning(f"Failed to parse _node_content: {e}")
-        
+
         # Fallback to string representation
         return str(result)[:200] + "..." if len(str(result)) > 200 else str(result)
 
     def _extract_citation_from_result(self, result):
         """Extract citation information from search result"""
         citation_parts = []
-        
-        if 'payload' in result:
-            payload = result['payload']
-            
+
+        if "payload" in result:
+            payload = result["payload"]
+
             # Get filename
-            file_name = payload.get('file_name', 'Unknown Document')
+            file_name = payload.get("file_name", "Unknown Document")
             citation_parts.append(file_name)
-            
+
             # Get file type
-            file_type = payload.get('file_type', '')
+            file_type = payload.get("file_type", "")
             if file_type:
                 citation_parts.append(f"({file_type})")
-            
+
             # Get date if available
-            creation_date = payload.get('creation_date', '')
+            creation_date = payload.get("creation_date", "")
             if creation_date:
                 citation_parts.append(f"Created: {creation_date}")
-            
+
             # Get file path for reference
-            file_path = payload.get('file_path', '')
+            file_path = payload.get("file_path", "")
             if file_path:
                 # Extract just the relative path from test_data onwards
-                if 'test_data' in file_path:
-                    rel_path = file_path[file_path.find('test_data'):]
+                if "test_data" in file_path:
+                    rel_path = file_path[file_path.find("test_data") :]
                     citation_parts.append(f"Source: {rel_path}")
-        
+
         return " | ".join(citation_parts) if citation_parts else "Unknown Source"
 
     def forward(self, query: str) -> str:
@@ -362,20 +364,22 @@ class RAGTool(Tool):
                     # Build context with citations
                     context_parts = []
                     citations = []
-                    
+
                     for i, result in enumerate(results):
                         content = self._extract_content_from_result(result)
                         citation = self._extract_citation_from_result(result)
-                        relevance = result.get('score', result.get('relevance_score', 0))
-                        
+                        relevance = result.get(
+                            "score", result.get("relevance_score", 0)
+                        )
+
                         context_parts.append(
                             f"Document {i + 1} (relevance: {relevance:.3f}): {content}"
                         )
                         citations.append(f"[{i + 1}] {citation}")
-                    
+
                     context = "\n\n".join(context_parts)
                     citations_text = "\n".join(citations)
-                    
+
                     response = f"Knowledge base search results for '{query}' (using {search_type} search):\n\n{context}\n\nSOURCES:\n{citations_text}"
 
                     # Add related context if available
@@ -698,6 +702,9 @@ class ManagerAgentSystem:
     """Manager Agent System"""
 
     def __init__(self, config_path: str | None = None):
+        self.name = (
+            "Manager Agent System"  # Add name attribute for Gradio UI compatibility
+        )
         self.config = self._load_config(config_path)
         self.vector_store = None
         self.manager_agent = None
@@ -726,7 +733,7 @@ class ManagerAgentSystem:
         default_config = {
             "models": {
                 "manager": {
-                    "name": "groq/qwen/qwen3-32b",  # Ultra-fast coordination via Groq
+                    "name": "openrouter/mistralai/mistral-small-3.2-24b-instruct",  # Reliable coordination via Mistral
                     "temperature": 0.1,
                     "max_tokens": 800,
                     "reasoning": "Blazing fast coordination and delegation",
@@ -855,6 +862,10 @@ class ManagerAgentSystem:
         except Exception as e:
             print(f"Advanced logging setup failed: {e}")
 
+        # Enable enhanced debug output to terminal
+        print("🚀 Manager Agent System with enhanced debug output enabled")
+        self.debug_mode = True
+
     def _create_router_model(self, model_config: dict, model_name: str):
         """Create a router model with multiple providers for reliability"""
         if not ROUTER_MODEL_AVAILABLE:
@@ -872,7 +883,7 @@ class ManagerAgentSystem:
             # Define backup models based on primary
             model_list = []
 
-            if "groq" in primary_model:
+            if "mistral" in primary_model:
                 # Groq with OpenRouter backup
                 model_list = [
                     {
@@ -906,7 +917,7 @@ class ManagerAgentSystem:
                     {
                         "model_name": f"{model_name}-group",
                         "litellm_params": {
-                            "model": "groq/qwen/qwen3-32b",
+                            "model": "openrouter/mistralai/mistral-small-3.2-24b-instruct",
                             "temperature": model_config["temperature"],
                             "max_tokens": model_config["max_tokens"],
                         },
@@ -1151,29 +1162,50 @@ class ManagerAgentSystem:
 
             # RAG Agent (optimized Mistral Small 3.2)
             if self.config["agents"]["rag"]["enabled"]:
-                # Create or reuse RAG tool instance for context sharing
+                # Create or reuse Compound RAG tool instance for best citations and synthesis
                 if not self.rag_tool_instance:
-                    self.rag_tool_instance = RAGTool(vector_store=self.vector_store)
+                    try:
+                        from src.core.compound_rag_tool import CompoundRAGTool
+
+                        self.rag_tool_instance = CompoundRAGTool(
+                            vector_store=self.vector_store
+                        )
+                        print(
+                            "🔗 Using Compound RAG Tool with tool composition pipeline"
+                        )
+                    except ImportError:
+                        try:
+                            from src.core.enhanced_rag_tool import EnhancedRAGTool
+
+                            self.rag_tool_instance = EnhancedRAGTool(
+                                vector_store=self.vector_store
+                            )
+                            print("✅ Using Enhanced RAG Tool with better citations")
+                        except ImportError:
+                            self.rag_tool_instance = RAGTool(
+                                vector_store=self.vector_store
+                            )
+                            print(
+                                "⚠️  Enhanced RAG Tool not available, using basic RAG Tool"
+                            )
 
                 # Add FinalAnswerTool to RAG tools
                 rag_tools = [self.rag_tool_instance, FinalAnswerTool()]
 
                 # Create simple prompt templates for RAG agent to avoid formatting issues
                 rag_prompt_templates = PromptTemplates(
-                    system_prompt="You are a knowledge base search agent. Search for information and provide clear, plain text answers without markdown formatting. When using final_answer, include source citations in your response using the format [1], [2], etc. to reference the numbered sources provided in your search results. Provide simple text responses without **, newlines, or special characters.",
+                    system_prompt="You are a knowledge base search agent. Your ONLY job is to search using the knowledge_search tool and return its output. The tool provides detailed source information. When using final_answer, copy the tool's output exactly as received - do not modify, summarize, or rewrite it. The tool output includes document names, file paths, and content sections that must be preserved exactly.",
                     planning=PlanningPromptTemplate(
                         initial_plan="Search knowledge base.",
                         update_plan_pre_messages="Searching...",
-                        update_plan_post_messages="Continuing."
+                        update_plan_post_messages="Continuing.",
                     ),
                     managed_agent=ManagedAgentPromptTemplate(
-                        task="Searching knowledge base.",
-                        report="Search completed."
+                        task="Searching knowledge base.", report="Search completed."
                     ),
                     final_answer=FinalAnswerPromptTemplate(
-                        pre_messages="",
-                        post_messages=""
-                    )
+                        pre_messages="", post_messages=""
+                    ),
                 )
 
                 rag_agent_instance = ToolCallingAgent(
@@ -1212,23 +1244,21 @@ class ManagerAgentSystem:
             # Add FinalAnswerTool for proper response handling
             simple_tools.append(FinalAnswerTool())
             # Direct and action-oriented system prompt with citation emphasis
-            system_prompt = """You are a Manager Agent that quickly routes queries to specialized tools. Be direct and efficient.
+            system_prompt = """You are a Manager Agent that routes queries to specialized tools. Your job is to preserve tool outputs exactly.
 
 TOOLS:
-- rag_agent: Search knowledge base for technical/scientific information  
+- rag_agent: Search knowledge base - returns detailed source documents with filenames, paths, and content
 - research_agent: Web search for current news and information
 - simple_chat: Basic questions, greetings, math
 
 ROUTING RULES:
 - Technical/scientific questions → rag_agent first
-- If rag_agent finds good results → use final_answer with those results INCLUDING ALL CITATIONS
-- If rag_agent results are insufficient → also use research_agent
 - Current events/news → research_agent  
 - Simple questions → simple_chat
 
-IMPORTANT: When the rag_agent provides citations (like [1], [2], [3]), always include them in your final answer. Preserve source references and citation numbers from the knowledge base results.
+CRITICAL: When rag_agent returns output containing [PRESERVE_OUTPUT], you MUST return the tool's output exactly as-is without any modification, summary, or rewriting. This indicates detailed source information with document names, file paths, and content sections that must be preserved completely.
 
-Be concise and focused. Don't overthink - just route appropriately and provide results with proper citations."""
+Look for [PRESERVE_OUTPUT] marker in tool results - if present, return the complete tool output unchanged."""
 
             # Create prompt templates with direct, action-oriented prompts
             prompt_templates = PromptTemplates(
@@ -1236,16 +1266,14 @@ Be concise and focused. Don't overthink - just route appropriately and provide r
                 planning=PlanningPromptTemplate(
                     initial_plan="Step 1: Route query to appropriate tool.",
                     update_plan_pre_messages="Updating plan based on results.",
-                    update_plan_post_messages="Continuing with next step."
+                    update_plan_post_messages="Continuing with next step.",
                 ),
                 managed_agent=ManagedAgentPromptTemplate(
-                    task="Routing to specialized agent.",
-                    report="Agent completed task."
+                    task="Routing to specialized agent.", report="Agent completed task."
                 ),
                 final_answer=FinalAnswerPromptTemplate(
-                    pre_messages="",
-                    post_messages=""
-                )
+                    pre_messages="", post_messages=""
+                ),
             )
 
             self.manager_agent = ToolCallingAgent(
@@ -1271,6 +1299,19 @@ Be concise and focused. Don't overthink - just route appropriately and provide r
             print(f"Failed to setup agents: {e}")
             raise
 
+    def run(self, query: str, **kwargs) -> str:
+        """
+        Run method for Gradio UI compatibility - delegates to run_query
+
+        Args:
+            query: The user query
+            **kwargs: Additional arguments
+
+        Returns:
+            Response string
+        """
+        return self.run_query(query, **kwargs)
+
     def run_query(self, query: str, **kwargs) -> str:
         """
         Run a query through the manager agent system with optimized routing
@@ -1290,6 +1331,20 @@ Be concise and focused. Don't overthink - just route appropriately and provide r
             response = self._handle_simple_query(query)
             self.conversation_history.append({"role": "assistant", "content": response})
             return response
+
+        # ENHANCED RAG BYPASS: For knowledge base queries, use enhanced RAG tool directly
+        if self._is_knowledge_query(query) and self.rag_tool_instance:
+            try:
+                print("🎯 Using enhanced RAG tool directly for better citations")
+                response = self.rag_tool_instance.forward(query)
+                self.conversation_history.append(
+                    {"role": "assistant", "content": response}
+                )
+                return response
+            except Exception as e:
+                print(
+                    f"⚠️ Enhanced RAG bypass failed: {e}, falling back to manager agent"
+                )
 
         # Check for database queries first
         if self.database_agent and self._is_database_query(query):
@@ -1479,6 +1534,12 @@ Be concise and focused. Don't overthink - just route appropriately and provide r
         ]
         query_lower = query.lower()
         return any(keyword in query_lower for keyword in db_keywords)
+
+    def _is_knowledge_query(self, query: str) -> bool:
+        """Always use enhanced RAG for better citations - simple bypass"""
+        # For now, always use enhanced RAG bypass for better citations
+        # This can be made configurable later if needed
+        return True
 
     def enable_debug_mode(self):
         """Enable debug mode with plan interruption"""

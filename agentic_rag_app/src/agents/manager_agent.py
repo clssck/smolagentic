@@ -25,7 +25,7 @@ class ManagerAgent(BaseAgent):
         # Set defaults
         config = {
             "name": "manager",
-            "model_id": "groq/qwen/qwen3-32b",
+            "model_id": "openrouter/mistralai/mistral-small-3.2-24b-instruct",
             "tools": [],
             "max_steps": 3,
             "temperature": 0.1,

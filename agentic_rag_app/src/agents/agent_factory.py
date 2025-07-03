@@ -166,7 +166,7 @@ class AgentFactory:
         # Type-specific configurations
         type_configs = {
             "manager": {
-                "model_id": "groq/qwen/qwen3-32b",
+                "model_id": "openrouter/mistralai/mistral-small-3.2-24b-instruct",
                 "max_tokens": 600,
                 "max_steps": 3,
             },

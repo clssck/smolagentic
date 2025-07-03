@@ -23,19 +23,20 @@ def create_manager_agent():
     """Create a manager agent system for the web UI."""
     Config.validate()
 
-    # Create manager agent system
-    system = ManagerSystem()
+    # Create manager agent system - use the actual agent for web UI compatibility
+    base_system = ManagerSystem()
     
+    # For web UI, we need to return the actual smolagents agent, not the debug wrapper
     if REFACTORED_SYSTEM:
         print("✅ Using refactored modular agent system for web UI")
-        if not system.manager_agent:
+        if not base_system.manager_agent:
             raise RuntimeError("Failed to initialize refactored manager agent system")
-        return system.manager_agent
+        return base_system.manager_agent
     else:
         print("✅ Using current manager agent system for web UI")
-        if not system.manager_agent:
+        if not base_system.manager_agent:
             raise RuntimeError("Failed to initialize manager agent system")
-        return system.manager_agent
+        return base_system.manager_agent
 
 
 def find_available_port(start_port: int, end_port: int = None) -> int:
